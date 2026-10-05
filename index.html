@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0b0e12">
+  <title>Hunter × Hunter — Nen Hunter</title>
+  <script src="https://telegram.org/js/telegram-web-app.js?63"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand-mark">
+        <span class="brand-dot"></span>
+        <span class="brand-title">Hunter x Hunter</span>
+      </div>
+      <div class="currency-box top-currency">
+        <button class="currency-item energy-currency" id="energyCurrencyBtn" type="button" aria-label="Энергия охоты">
+          <span class="currency-dot energy"><img src="img/icon/energy.png" alt=""></span><span><small>Энергия</small><b id="energyValue">100/100</b></span>
+        </button>
+        <div class="currency-item"><span class="currency-dot jenny"><img src="img/icon/jenny.png" alt=""></span><span><small>Дженни</small><b id="jennyValue">0</b></span></div>
+        <div class="currency-item"><span class="currency-dot nen-gem"><img src="img/icon/nen-gem.png" alt=""></span><span><small>Камни Нэн</small><b id="nenGemValue">0</b></span></div>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <section class="hunter-page" id="hunterPage">
+        <div class="hunter-visual-bg">
+        <section class="hero-card">
+          <div class="hero-glow"></div>
+          <div class="character-portrait-wrap">
+            <img id="characterPortrait" class="character-portrait" src="img/profile/gon.jpg" alt="Персонаж">
+            <div class="portrait-ring"></div>
+          </div>
+
+          <div class="hero-info">
+            <div class="character-label">АКТИВНЫЙ ПЕРСОНАЖ</div>
+            <div class="hero-name-line"><h3 id="nicknameDisplay">Hunter</h3><span class="premium-badge" id="premiumBadge" hidden>PREMIUM</span></div>
+            <div class="class-line">
+              <span id="characterClass">Боец</span>
+              <span class="separator">•</span>
+              <span id="characterRank">Аспирант</span>
+            </div>
+            <div class="aura-compact" aria-label="Аура">
+              <img src="img/icon/aura.png" alt="">
+              <strong id="auraValue">0 <span>аура</span></strong>
+            </div>
+
+            <div class="level-row">
+              <div class="level-head">
+                <span class="level-caption">Уровень Нэн</span>
+                <strong id="levelValue">1</strong>
+              </div>
+              <div class="xp-numbers"><span id="xpCurrent">0</span> / <span id="xpMax">100</span> XP</div>
+            </div>
+            <div class="progress-track xp-track">
+              <div class="progress-fill xp-fill" id="xpFill"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="primary-section">
+          <div class="section-heading-row">
+            <span class="section-kicker">ОСНОВНЫЕ</span>
+          </div>
+          <div class="primary-grid" id="primaryStats"></div>
+          <div class="secondary-list" id="secondaryStats"></div>
+        </section>
+
+        <div class="profile-actions" aria-label="Разделы персонажа">
+          <button class="profile-action" id="openInventoryBtn" type="button">
+            <span class="profile-action-icon"><img src="img/icon/inventory.png" alt=""></span>
+            <span><b>Инвентарь</b></span>
+          </button>
+          <button class="profile-action" id="openSkillsBtn" type="button">
+            <span class="profile-action-icon"><img src="img/icon/skills.png" alt=""></span>
+            <span><b>Навыки</b></span>
+          </button>
+        </div>
+        </div>
+
+      </section>
+
+      <section class="skills-screen" id="skillsScreen" aria-hidden="true">
+        <div class="skills-panel">
+          <div class="skills-header">
+            <div>
+              <span class="section-kicker">НЭН / НАВЫКИ</span>
+              <h2 id="skillsTitle">Навыки</h2>
+              <p id="skillsSubtitle">Выбери до двух активных техник</p>
+            </div>
+            <button class="skills-close" id="closeSkillsBtn" type="button" aria-label="Закрыть">×</button>
+          </div>
+          <div class="skills-selection-info">
+            <div class="active-skills-heading"><span>АКТИВНЫЕ НАВЫКИ</span><b id="selectedSkillsCount">0 / 2</b></div>
+            <p>Надень до двух открытых техник. Нажми на надетый навык, чтобы снять его.</p>
+            <div class="active-skill-slots" id="activeSkillSlots"></div>
+          </div>
+          <div class="skills-grid" id="skillsGrid"></div>
+        </div>
+      </section>
+
+    <section class="inventory-screen" id="inventoryScreen" aria-hidden="true">
+      <div class="inventory-panel">
+        <div class="inventory-header">
+          <div>
+            <span class="section-kicker">СНАРЯЖЕНИЕ</span>
+            <h2>Инвентарь</h2>
+          </div>
+          <div class="inventory-header-right">
+            <span class="inventory-capacity" id="inventoryCapacity">0 / 100</span>
+            <button class="inventory-close" id="closeInventoryBtn" type="button" aria-label="Закрыть">×</button>
+          </div>
+        </div>
+
+        <div class="equipment-card">
+          <div class="equipment-side equipment-left">
+            <button class="equipment-slot" data-equip-slot="weapon" type="button">
+              
+            </button>
+            <button class="equipment-slot" data-equip-slot="armor" type="button">
+              
+            </button>
+          </div>
+
+          <div class="equipment-character">
+            <div class="equipment-character-glow"></div>
+            <img id="inventoryCharacterPortrait" src="img/profile/gon.jpg" alt="Персонаж">
+          </div>
+
+          <div class="equipment-side equipment-right">
+            <button class="equipment-slot" data-equip-slot="amulet" type="button">
+              
+            </button>
+            <button class="equipment-slot" data-equip-slot="ring" type="button">
+              
+            </button>
+          </div>
+
+          <div class="artifact-slots">
+            <div class="artifact-row">
+              <button class="equipment-slot artifact-slot" data-equip-slot="artifact1" type="button"></button>
+              <button class="equipment-slot artifact-slot" data-equip-slot="artifact2" type="button"></button>
+              <button class="equipment-slot artifact-slot" data-equip-slot="artifact3" type="button"></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="inventory-toolbar">
+          <div>
+            <b>Снаряжение</b>
+            <span id="inventorySelectedLabel" class="inventory-helper-hidden"></span>
+          </div>
+          <div class="inventory-actions">
+            <button id="inventoryBestBtn" type="button">Надеть лучшее</button>
+            <button id="inventoryMassBtn" type="button">Выбрать</button>
+          </div>
+        </div>
+
+        <div class="mass-toolbar" id="massToolbar">
+          <button id="inventorySelectAllBtn" type="button">Выбрать всё</button>
+          <span id="inventoryMassCount">Выбрано: 0</span>
+          <button id="inventoryDeleteSelectedBtn" type="button" class="danger-action">Удалить всё</button>
+        </div>
+
+        <div class="inventory-grid" id="inventoryGrid"></div>
+      </div>
+    </section>
+
+
+    <section class="equipment-modal" id="equipmentModal" aria-hidden="true">
+      <div class="equipment-modal-panel">
+        <button class="equipment-modal-close" id="equipmentModalClose" type="button" aria-label="Закрыть">×</button>
+        <div id="equipmentModalContent"></div>
+      </div>
+    </section>
+
+    <section class="hunt-screen" id="huntScreen" aria-hidden="true">
+      <div class="hunt-panel">
+        <div class="hunt-header">
+          <div><span class="section-kicker">МИР / ОХОТА</span><p>Выбирай область по уровню Нэн и отправляйся на охоту.</p></div>
+        </div>
+        <div class="hunt-levels" id="huntLevels"></div>
+        <div class="hunt-area" id="huntArea"></div>
+        <div class="hunt-dungeons" id="huntDungeons"></div>
+      </div>
+    </section>
+
+    <section class="hunt-detail-modal" id="huntDetailModal" aria-hidden="true">
+      <div class="hunt-detail-modal-panel">
+        <button class="hunt-detail-modal-close" id="huntDetailModalClose" type="button" aria-label="Закрыть">×</button>
+        <div id="huntDetailModalContent"></div>
+      </div>
+    </section>
+
+    <section class="battle-screen" id="battleScreen" aria-hidden="true">
+      <div class="battle-shell" id="battleShell">
+        <div class="battle-topbar"><button id="battleCloseBtn" class="battle-exit-btn" type="button" aria-label="Выйти из боя">×</button><b id="battleDungeonName">Данж</b><span id="battleTurnLabel">Ход игрока</span></div>
+        <div class="battle-field">
+          <div class="battle-fighter player-fighter"><img id="battlePlayerImage" src="img/dungeon/me_klass/gon.png" alt=""><div class="fighter-name" id="battlePlayerName">Hunter</div><div class="fighter-aura" id="battlePlayerAura">✦ 0 ауры</div><div class="battle-bar hp"><i id="battlePlayerHpFill"></i></div><div class="battle-numbers"><span id="battlePlayerHp">0/0</span></div><div class="battle-bar mana"><i id="battlePlayerManaFill"></i></div><div class="battle-numbers"><span id="battlePlayerMana">0/0</span></div></div>
+          <div class="battle-vs">VS</div>
+          <div class="battle-fighter enemy-fighter"><img id="battleEnemyImage" src="" alt=""><div class="fighter-name" id="battleEnemyName">Враг</div><div class="fighter-aura" id="battleEnemyAura">✦ 0 ауры</div><div class="battle-bar hp"><i id="battleEnemyHpFill"></i></div><div class="battle-numbers"><span id="battleEnemyHp">0/0</span></div><div class="battle-bar mana"><i id="battleEnemyManaFill"></i></div><div class="battle-numbers"><span id="battleEnemyMana">0/0</span></div></div>
+        </div>
+        <div class="battle-log" id="battleLog"></div>
+        <div class="battle-actions" id="battleActions"></div>
+      </div>
+    </section>
+
+    <section class="battle-result-modal" id="battleResultModal" aria-hidden="true">
+      <div class="battle-result-panel">
+        <div class="battle-result-icon" id="battleResultIcon">✓</div>
+        <span class="section-kicker">РЕЗУЛЬТАТ ОХОТЫ</span>
+        <h2 id="battleResultTitle">ПОБЕДА</h2>
+        <p id="battleResultSubtitle">Вы победили противника.</p>
+        <div id="battleResultRewards"></div>
+        <button class="battle-result-close" id="battleResultCloseBtn" type="button">Вернуться к охоте</button>
+      </div>
+    </section>
+
+    <section class="more-screen" id="moreScreen" aria-hidden="true">
+      <div class="more-panel">
+        <div class="more-heading"><span class="section-kicker">ПРОФИЛЬ / СИСТЕМА</span><h2>Ещё</h2><p>Дополнительные разделы охотника.</p></div>
+        <div class="more-section"><div class="more-section-title">МИР</div><div class="more-section-grid">
+          <button class="more-menu-button" id="openBossBtn" type="button"><span class="more-menu-icon"><img src="img/icon/boss.png" alt=""></span><span><b>Босс</b></span><strong>›</strong></button>
+          <button class="more-menu-button" id="openExpeditionBtn" type="button"><span class="more-menu-icon"><img src="img/icon/expedition.png" alt=""></span><span><b>Экспедиция</b></span><strong>›</strong></button>
+        </div></div>
+        <div class="more-section"><div class="more-section-title">ЭКОНОМИКА</div><div class="more-section-grid">
+          <button class="more-menu-button" id="openShopBtn" type="button"><span class="more-menu-icon"><img src="img/icon/shop.png" alt=""></span><span><b>Магазин</b></span><strong>›</strong></button>
+          <button class="more-menu-button" id="openBlackMarketBtn" type="button"><span class="more-menu-icon"><img src="img/icon/black-market.png" alt=""></span><span><b>Черный рынок</b></span><strong>›</strong></button>
+        </div></div>
+        <div class="more-section"><div class="more-section-title">СИСТЕМА</div><div class="more-section-grid more-section-grid-single">
+          <button class="more-menu-button" id="openSettingsBtn" type="button"><span class="more-menu-icon"><img src="img/icon/settings.png" alt=""></span><span><b>Настройки</b></span><strong>›</strong></button>
+        </div></div>
+      </div>
+    </section>
+
+
+    <section class="boss-screen" id="bossScreen" aria-hidden="true"><div class="boss-panel"><div class="boss-head"><button class="boss-back" id="bossBackBtn" type="button">‹</button><div><span class="section-kicker">МИР / РЕЙД</span><h2>Босс</h2><p>Особо опасные цели Ассоциации. Урон сохраняется между попытками до смены босса.</p></div></div><div class="boss-lock" id="bossLock"><b>Доступно с 15 уровня</b><span>Получи достаточно опыта, чтобы Ассоциация допустила тебя к рейдовым заданиям.</span></div><div id="bossContent"></div></div></section>
+
+    <section class="expedition-screen" id="expeditionScreen" aria-hidden="true">
+      <div class="expedition-panel">
+        <div class="expedition-head"><button class="expedition-back" id="expeditionBackBtn" type="button">‹</button><div><span class="section-kicker">МИР / ЭКСПЕДИЦИЯ</span><h2>Экспедиция</h2><p>Отправь охотника в путь. Чем дольше маршрут, тем выше награды и шанс редкого снаряжения.</p></div></div>
+        <div class="expedition-lock" id="expeditionLock"><b>Доступно с 10 уровня</b><span>Подними уровень персонажа, чтобы открыть дальние задания Ассоциации охотников.</span></div>
+        <div class="expedition-content" id="expeditionContent">
+          <div class="expedition-routes" id="expeditionRoutes"></div>
+          <article class="expedition-detail" id="expeditionDetail"></article>
+        </div>
+        <article class="expedition-active" id="expeditionActive" hidden></article>
+      </div>
+    </section>
+
+    <section class="expedition-result-modal" id="expeditionResultModal" aria-hidden="true"><div class="expedition-result-panel"><div class="battle-result-icon">✓</div><span class="section-kicker">ЭКСПЕДИЦИЯ ЗАВЕРШЕНА</span><h2>Возвращение</h2><p id="expeditionResultText"></p><div id="expeditionResultRewards"></div><button id="expeditionResultClose" type="button">Забрать награды</button></div></section>
+    <section class="expedition-block-modal" id="expeditionBlockModal" aria-hidden="true"><div class="expedition-block-panel"><div class="expedition-block-icon">⌛</div><h3>Охотник в экспедиции</h3><p id="expeditionBlockText"></p><button id="expeditionBlockClose" type="button">Закрыть</button></div></section>
+
+    <section class="energy-modal" id="energyModal" aria-hidden="true">
+      <div class="energy-modal-panel">
+        <button class="energy-modal-close" id="energyModalClose" type="button" aria-label="Закрыть">×</button>
+        <div class="energy-modal-icon"><img src="img/icon/energy.png" alt=""></div>
+        <span class="section-kicker">ОХОТА / ЭНЕРГИЯ</span>
+        <h2>Энергия</h2>
+        <div class="energy-modal-value" id="energyModalValue">100 / 100</div>
+        <div class="energy-progress"><i id="energyProgressFill"></i></div>
+        <p>Каждый вход в данж Охоты расходует <b>5 энергии</b>. Восстанавливается <b>1 энергия каждые 3 минуты</b>, даже когда игра закрыта.</p>
+        <div class="energy-full-time"><span>До полного восстановления</span><b id="energyFullTime">Полная</b></div>
+      </div>
+    </section>
+
+
+    <section class="shop-screen economy-screen" id="shopScreen" aria-hidden="true">
+      <div class="shop-panel economy-panel">
+        <div class="economy-head">
+          <button class="economy-back" id="shopBackBtn" type="button">‹</button>
+          <div><span class="section-kicker">ЭКОНОМИКА / МАГАЗИН</span><h2>Магазин</h2><p>Камни Нэн, Premium и снаряжение Ассоциации. Витрина обновляется каждые 2 часа.</p></div>
+        </div>
+        <article class="premium-offer" id="premiumOffer">
+          <div class="premium-offer-copy">
+            <span class="premium-crown">✦</span><span class="section-kicker">HUNTER PREMIUM</span>
+            <h3>Статус элитного охотника</h3>
+            <p>Небольшие постоянные преимущества без превращения Premium в обязательную покупку.</p>
+            <div class="premium-benefits">
+              <span>✦ Значок возле ника</span><span>◈ Золотая рамка профиля</span><span>⚡ +50 максимум энергии</span>
+              <span>XP +10%</span><span>Дженни +10%</span><span>Инвентарь +25 мест</span><span>Чёрный рынок +5 лотов</span><span>Комиссия рынка 3%</span>
+            </div>
+          </div>
+          <div class="premium-offer-action"><b id="premiumStatusText">Premium не активен</b><button id="buyPremiumBtn" type="button">30 дней • 299 ⭐</button></div>
+        </article>
+        <div class="shop-section-head"><div><span class="section-kicker">КАМНИ НЭН</span><h3>Пополнение</h3></div><small>Покупка через Telegram Stars</small></div>
+        <div class="nen-pack-grid" id="nenPackGrid"></div>
+        <div class="shop-section-head"><div><span class="section-kicker">СНАРЯЖЕНИЕ</span><h3>Витрина Ассоциации</h3></div><small>Смена через <b id="shopRotationTimer">--:--:--</b></small></div>
+        <div class="shop-stock-note">Предметы подбираются около твоего уровня. Класс может отличаться — выгодную находку можно оставить для смены персонажа или продать.</div>
+        <div class="shop-equipment-grid" id="shopEquipmentGrid"></div>
+        <div class="economy-hint" id="shopHint"></div>
+      </div>
+    </section>
+
+    <section class="market-screen economy-screen" id="marketScreen" aria-hidden="true">
+      <div class="market-panel economy-panel">
+        <div class="economy-head">
+          <button class="economy-back" id="marketBackBtn" type="button">‹</button>
+          <div><span class="section-kicker">ЭКОНОМИКА / ИГРОКИ</span><h2>Чёрный рынок</h2><p>Выставляй найденное снаряжение и покупай лоты других охотников за Дженни.</p></div>
+          <span class="market-mode" id="marketMode">Проверка сети…</span>
+        </div>
+        <div class="market-sell-card">
+          <div class="market-sell-head"><div><b>Выставить предмет</b><small id="marketSlotsText">0 / 5 лотов</small></div><span id="marketCommissionText">Комиссия 5% при продаже</span></div>
+          <button class="market-item-picker" id="marketItemPickerBtn" type="button"><span id="marketSelectedItemText">Выбрать предмет из инвентаря</span><strong>›</strong></button>
+          <div class="market-price-row"><input id="marketPriceInput" type="number" min="1" step="1" inputmode="numeric" placeholder="Цена в Дженни"><button id="marketCreateListingBtn" type="button">Выставить</button></div>
+          <div class="economy-hint" id="marketSellHint"></div>
+        </div>
+        <div class="market-tabs"><button class="active" data-market-tab="all" type="button">Все лоты</button><button data-market-tab="mine" type="button">Мои лоты</button></div>
+        <div class="market-list" id="marketList"></div>
+      </div>
+    </section>
+
+    <section class="market-picker-modal" id="marketPickerModal" aria-hidden="true">
+      <div class="market-picker-panel">
+        <div class="market-picker-head"><div><span class="section-kicker">ЧЁРНЫЙ РЫНОК</span><h3>Выбери предмет</h3></div><button id="marketPickerClose" type="button">×</button></div>
+        <div class="market-picker-grid" id="marketPickerGrid"></div>
+      </div>
+    </section>
+
+    <section class="settings-modal" id="settingsModal" aria-hidden="true">
+      <div class="settings-panel">
+        <button class="settings-close" id="settingsCloseBtn" type="button" aria-label="Закрыть">×</button>
+        <div class="settings-heading"><span class="section-kicker">ПРОФИЛЬ</span><h2>Настройки</h2><p>Изменения применяются сразу.</p></div>
+        <div class="settings-block">
+          <div class="settings-block-title"><span>Ник профиля</span><b id="nicknameChangePrice">Первая смена бесплатно</b></div>
+          <div class="settings-nick-row"><input id="settingsNickname" maxlength="18" autocomplete="off"><button id="changeNicknameBtn" type="button">Сменить</button></div>
+          <small class="settings-hint" id="settingsNicknameHint"></small>
+        </div>
+        <div class="settings-block settings-character-change">
+          <div class="settings-block-title"><span>Персонаж</span><b id="characterChangePrice">Первая смена бесплатно</b></div>
+          <button class="settings-character-toggle" id="settingsCharacterToggle" type="button"><span><img id="settingsCharacterCurrentImage" src="img/profile/gon.jpg" alt=""><b id="settingsCharacterCurrentName">Гон Фрикс</b></span><strong>Выбрать ▾</strong></button>
+          <div class="settings-character-picker" id="settingsCharacterPicker" hidden></div>
+          <button class="settings-character-confirm" id="settingsCharacterConfirm" type="button" disabled>Сменить персонажа</button>
+          <small class="settings-hint" id="settingsCharacterHint"></small>
+        </div>
+      </div>
+    </section>
+
+    <section class="rank-screen" id="rankScreen" aria-hidden="true">
+      <div class="rank-panel">
+        <div class="rank-header">
+          <div><span class="section-kicker">ИСПЫТАНИЯ / РАНГ</span><h2>Ранг</h2><p>Проходи испытания и получай новые титулы. Каждая смена титула даёт ещё +7% к базовым характеристикам.</p></div>
+          <div class="rank-current"><span>ТЕКУЩИЙ ТИТУЛ</span><b id="rankCurrentTitle">Аспирант</b><small id="rankCurrentBonus">+0% к базовым характеристикам</small></div>
+        </div>
+        <div class="rank-lock" id="rankLock"><div class="rank-lock-icon">🔒</div><b>Ранг закрыт</b><span>Достигни 15 уровня персонажа, чтобы открыть испытания.</span></div>
+        <div class="rank-trials" id="rankTrials"></div>
+      </div>
+    </section>
+
+    <section class="chat-screen" id="chatScreen" aria-hidden="true">
+      <div class="chat-panel">
+        <div class="chat-header">
+          <div class="chat-heading">
+            <span class="section-kicker">СВЯЗЬ / ОХОТНИКИ</span>
+            <h2>Чаты</h2>
+            <p>Общий канал охотников. Общайся, делись победами и находками.</p>
+          </div>
+          <div class="chat-online"><span class="online-dot"></span><div><b id="chatOnlineCount">1</b><small>охотников онлайн</small></div></div>
+        </div>
+        <div class="chat-room-card">
+          <div class="chat-room-top">
+            <div class="chat-room-title"><span class="chat-room-icon">✦</span><div><b>Общий чат</b><small>Все охотники</small></div></div>
+            <span class="chat-status"><i></i> ОНЛАЙН</span>
+          </div>
+          <div class="chat-messages" id="chatMessages" aria-live="polite"></div>
+          <div class="chat-composer">
+            <div class="chat-avatar"><img id="chatAvatar" src="img/profile/gon.jpg" alt=""></div>
+            <div class="chat-input-wrap">
+              <div id="chatAttachedItem" class="chat-attached-item" hidden></div>
+              <input id="chatInput" type="text" maxlength="180" autocomplete="off" placeholder="Написать сообщение...">
+              <div class="chat-input-meta"><span>Общий чат</span><span id="chatCharCount">0 / 180</span></div>
+              <button id="chatInventoryBtn" class="chat-inventory-btn" type="button"><img src="img/icon/inventory.png" alt=""> Инвентарь</button>
+            </div>
+            <button id="chatSendBtn" class="chat-send-btn" type="button" aria-label="Отправить сообщение">➤</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="chat-equipment-picker" id="chatEquipmentPicker" aria-hidden="true">
+      <div class="chat-picker-panel">
+        <div class="chat-picker-head"><div><span class="section-kicker">ИНВЕНТАРЬ / ЧАТ</span><h3>Выбрать снаряжение</h3><p>Выбери предмет, который хочешь отправить в сообщение.</p></div><button id="chatPickerClose" type="button">×</button></div>
+        <div class="chat-picker-tabs" id="chatPickerTabs"></div>
+        <div class="chat-picker-grid" id="chatPickerGrid"></div>
+      </div>
+    </section>
+
+    <section class="chat-item-compare" id="chatItemCompare" aria-hidden="true">
+      <div class="chat-compare-panel">
+        <div class="chat-compare-head"><div><span class="section-kicker">СНАРЯЖЕНИЕ / СРАВНЕНИЕ</span><h3>Предмет в чате</h3></div><button id="chatCompareClose" type="button">×</button></div>
+        <div class="chat-compare-grid" id="chatCompareGrid"></div>
+      </div>
+    </section>
+
+    <section class="placeholder-page" id="placeholderPage">
+        <div class="placeholder-icon">✦</div><span class="section-kicker" id="placeholderKicker">РАЗДЕЛ</span><h2 id="placeholderTitle">Ранг</h2><p>Раздел подготовлен для следующего этапа разработки.</p>
+      </section>
+    </main>
+
+    <section class="character-select-screen" id="characterSelectScreen">
+      <div class="select-backdrop"></div>
+      <div class="select-card">
+        <div class="select-kicker">ПЕРВЫЙ ВХОД</div>
+        <h2>Выбери своего Хантера</h2>
+        <p>Персонаж определит стартовые особенности и стиль развития.</p>
+        <div class="select-nickname">
+          <label for="firstNickname">ТВОЙ НИК</label>
+          <input id="firstNickname" maxlength="18" value="Hunter" placeholder="Введите ник">
+        </div>
+        <div class="select-character-grid" id="selectCharacter"></div>
+        <div class="select-preview" id="selectPreview"></div>
+        <div class="select-actions">
+          <button class="select-main-btn" id="selectBtn" type="button" disabled>Выбрать</button>
+          <button class="confirm-btn" id="confirmBtn" type="button" disabled>Подтвердить выбор</button>
+        </div>
+        <button class="cancel-select-btn" id="cancelSelectBtn" type="button" disabled>Отменить выбор</button>
+      </div>
+    </section>
+
+    <nav class="bottom-nav" aria-label="Основная навигация">
+      <button class="nav-item active" data-tab="hunter" type="button">
+        <img src="img/icon/hunter.png" alt="">
+        <span>Хантер</span>
+      </button>
+      <button class="nav-item" data-tab="hunt" type="button">
+        <img src="img/icon/hunt.png" alt="">
+        <span>Охота</span>
+      </button>
+      <button class="nav-item rank-nav-item" data-tab="rank" type="button">
+        <span class="rank-unlock-badge">15+</span>
+        <img src="img/icon/rank.png" alt="">
+        <span>Ранг</span>
+      </button>
+      <button class="nav-item" data-tab="chat" type="button">
+        <img src="img/icon/chat.png" alt="">
+        <span>Чаты</span>
+      </button>
+      <button class="nav-item" data-tab="more" type="button">
+        <img src="img/icon/more.png" alt="">
+        <span>Ещё</span>
+      </button>
+    </nav>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,1023 @@
+const characters = {
+  gon: {
+    name: "Гон Фрикс", class: "Боец", rank: "Аспирант", level: 1, xp: 0, xpMax: 118,
+    profile: "img/profile/gon.svg",
+    primary: { strength: 12, health: 160, defense: 14, mana: 75 }
+  },
+  killua: {
+    name: "Киллуа Золдик", class: "Убийца", rank: "Аспирант", level: 1, xp: 0, xpMax: 118,
+    profile: "img/profile/killua.svg",
+    primary: { strength: 19, health: 110, defense: 9, mana: 80 }
+  },
+  hisoka: {
+    name: "Хисока Мороу", class: "Маг", rank: "Аспирант", level: 1, xp: 0, xpMax: 118,
+    profile: "img/profile/hisoka.svg",
+    primary: { strength: 21, health: 80, defense: 8, mana: 140 }
+  },
+  kurapika: {
+    name: "Курапика", class: "Маг-боец", rank: "Аспирант", level: 1, xp: 0, xpMax: 118,
+    profile: "img/profile/kurapika.svg",
+    primary: { strength: 18, health: 120, defense: 11, mana: 120 }
+  }
+};
+
+const primaryMeta = [
+  ["strength", "Сила", "strength.png"],
+  ["health", "Здоровье", "health.png"],
+  ["defense", "Защита", "defense.png"],
+  ["mana", "Мана", "mana.png"]
+];
+
+const SKILLS = {
+  gon: [
+    {id:"gon_stone", name:"Джаджанкен (Камень)", icon:"◆", cost:32, cooldown:3, power:28, desc:"Мощный ближний удар. Чем выше Сила, тем сильнее техника.", type:"damage", tags:["СИЛЬНЫЙ"]},
+    {id:"gon_paper", name:"Джаджанкен (Бумага)", icon:"✦", cost:22, cooldown:2, power:20, desc:"Дальний выброс ауры, игнорирует 25% Защиты цели.", type:"pierce", tags:["ДАЛЬНИЙ"]},
+    {id:"gon_scissors", name:"Джаджанкен (Ножницы)", icon:"✂", cost:24, cooldown:2, power:18, desc:"Точная режущая атака с шансом критического удара.", type:"crit", tags:["КРИТ"]},
+    {id:"gon_aura", name:"Аура усиления", icon:"✦", cost:26, cooldown:3, power:0, desc:"Усиливает следующий урон на 35% и даёт +20% Защиты на 2 хода.", type:"buff", tags:["УСИЛЕНИЕ"]}
+  ],
+  killua: [
+    {id:"killua_claw", name:"Коготь", icon:"⌁", cost:20, cooldown:1, power:18, desc:"Быстрая серия ударов. Накладывает кровотечение на 3 хода.", type:"bleed", tags:["КРОВОТЕЧЕНИЕ"]},
+    {id:"killua_instant", name:"Мгновенный удар", icon:"⚡", cost:28, cooldown:2, power:24, desc:"Молниеносная атака и шанс увернуться от следующего удара.", type:"evasion", tags:["СКОРОСТЬ"]},
+    {id:"killua_throw", name:"Меткий бросок", icon:"➤", cost:18, cooldown:1, power:21, desc:"Точный дальний удар. +35% урона по усиленной цели.", type:"mark", tags:["ТОЧНОСТЬ"]},
+    {id:"killua_stealth", name:"Скрытность", icon:"◌", cost:25, cooldown:3, power:0, desc:"Скрывает Киллуа на 2 хода: 60% уклонения и +40% к следующей атаке.", type:"stealth", tags:["УКЛОНЕНИЕ"]}
+  ],
+  hisoka: [
+    {id:"hisoka_mind", name:"Игры разума", icon:"♠", cost:24, cooldown:2, power:14, desc:"Психологическая атака: -25% урона цели на 2 хода.", type:"mind", tags:["КОНТРОЛЬ"]},
+    {id:"hisoka_deception", name:"Обман", icon:"♦", cost:22, cooldown:2, power:18, desc:"Финт с 50% уклонением на следующий ход.", type:"deception", tags:["ФИНТ"]},
+    {id:"hisoka_cards", name:"Смертельные карты", icon:"🂡", cost:28, cooldown:1, power:27, desc:"Дальний бросок карт. Игнорирует эффекты уклонения.", type:"pierce", tags:["ДАЛЬНИЙ"]},
+    {id:"hisoka_cleave", name:"Клевец", icon:"♣", cost:40, cooldown:3, power:34, desc:"Тяжёлый добивающий удар. +50% урона по цели ниже 35% HP.", type:"execute", tags:["ДОБИВАНИЕ"]}
+  ],
+  kurapika: [
+    {id:"kura_chains", name:"Цепи", icon:"⛓", cost:24, cooldown:2, power:22, desc:"Связывает цель: -40% её урона на следующий ход.", type:"chain", tags:["СВЯЗЬ"]},
+    {id:"kura_eyes", name:"Глаза", icon:"◉", cost:20, cooldown:1, power:12, desc:"Анализирует цель: снимает Скрытность и наносит бонусный урон.", type:"reveal", tags:["РАСКРЫТИЕ"]},
+    {id:"kura_submit", name:"Подчинение", icon:"◇", cost:28, cooldown:2, power:20, desc:"Подавляет волю цели: -30% её следующего урона и -20% Защиты.", type:"control", tags:["ПОДАВЛЕНИЕ"]},
+    {id:"kura_death", name:"Смертельный приговор", icon:"✦", cost:45, cooldown:3, power:38, desc:"Запретная техника. Сильнее против усиленных целей, но требует много маны.", type:"execute", tags:["КАЗНЬ"]}
+  ]
+};
+
+const SKILL_UNLOCK_LEVELS = [1, 5, 15, 30];
+const SKILL_MAX_LEVEL = 10;
+const skillState = {};
+
+function ensureSkillState(id) {
+  if (!skillState[id]) skillState[id] = { selected: {}, levels: {} };
+  const list = SKILLS[id] || [];
+  list.forEach((_, index) => {
+    if (!Number.isFinite(skillState[id].levels[index])) skillState[id].levels[index] = 1;
+  });
+  const selected = list.reduce((sum, _, index) => sum + (skillState[id].selected && skillState[id].selected[index] ? 1 : 0), 0);
+  if (selected > 2) {
+    skillState[id].selected = {};
+    list.forEach((_, index) => { if (index < 2) skillState[id].selected[index] = true; });
+  }
+}
+function getSkillLevel(id, index) { ensureSkillState(id); return Math.max(1, Math.min(SKILL_MAX_LEVEL, Number(skillState[id].levels[index]) || 1)); }
+function isSkillUnlocked(index) { return characters[activeCharacter].level >= SKILL_UNLOCK_LEVELS[index]; }
+function isSkillSelected(index) { ensureSkillState(activeCharacter); return Boolean(skillState[activeCharacter].selected[index]); }
+function getSkillUpgradeCost(index) {
+  const level = getSkillLevel(activeCharacter, index);
+  return Math.round(450 * (index + 1) * Math.pow(1.65, level - 1));
+}
+function getSkillPower(skill, index) {
+  const level = getSkillLevel(activeCharacter, index);
+  return Math.round(skill.power * (1 + (level - 1) * 0.18));
+}
+function getSkillManaCost(skill, index) {
+  const level = getSkillLevel(activeCharacter, index);
+  return Math.max(5, Math.round(skill.cost * (1 - Math.min(.18, (level - 1) * .02))));
+}
+function toggleSkillSelection(index) {
+  ensureSkillState(activeCharacter);
+  if (!isSkillUnlocked(index)) return;
+  const selected = Boolean(skillState[activeCharacter].selected[index]);
+  if (selected) {
+    delete skillState[activeCharacter].selected[index];
+  } else {
+    const count = Object.values(skillState[activeCharacter].selected).filter(Boolean).length;
+    if (count >= 2) return;
+    skillState[activeCharacter].selected[index] = true;
+  }
+  saveGameState();
+  renderSkills();
+}
+function upgradeSkill(index) {
+  ensureSkillState(activeCharacter);
+  if (!isSkillUnlocked(index)) return;
+  const level = getSkillLevel(activeCharacter, index);
+  if (level >= SKILL_MAX_LEVEL) return;
+  const cost = getSkillUpgradeCost(index);
+  const current = Number(localStorage.getItem('hxh_jenny') || 0);
+  if (current < cost) {
+    renderSkills();
+    return;
+  }
+  localStorage.setItem('hxh_jenny', String(current - cost));
+  skillState[activeCharacter].levels[index] = level + 1;
+  saveGameState();
+  renderSkills();
+  renderCurrencies();
+}
+function getSkillList() { return SKILLS[activeCharacter] || []; }
+function getSkillIconPath(characterId, skillIndex) {
+  const skill = (SKILLS[characterId] || [])[skillIndex];
+  return skill ? `img/${characterId}_skill/${skill.id}.jpg` : "";
+}
+function getActiveSkillIndexes() {
+  ensureSkillState(activeCharacter);
+  return Object.keys(skillState[activeCharacter].selected).filter(i => skillState[activeCharacter].selected[i]).map(Number).sort((a,b) => a-b);
+}
+function renderActiveSkillSlots() {
+  const wrap = $('#activeSkillSlots');
+  if (!wrap) return;
+  const active = getActiveSkillIndexes();
+  wrap.innerHTML = [0,1].map(slot => {
+    const index = active[slot];
+    if (index === undefined) return `<div class="active-skill-slot empty"><span class="active-skill-plus">+</span><small>Свободный слот</small></div>`;
+    const skill = SKILLS[activeCharacter][index];
+    return `<div class="active-skill-slot filled" title="${skill.name}"><img src="${getSkillIconPath(activeCharacter,index)}" alt="${skill.name}"><div><b>${skill.name}</b><small>Слот ${slot+1} • Ур. ${getSkillLevel(activeCharacter,index)}</small></div></div>`;
+  }).join('');
+}
+function renderSkills() {
+  const c = characters[activeCharacter];
+  if (!c) return;
+  ensureSkillState(activeCharacter);
+  $('#skillsTitle').textContent = `Навыки — ${c.name}`;
+  $('#skillsSubtitle').textContent = `${c.class} • выбери до двух активных техник`;
+  const selectedCount = Object.values(skillState[activeCharacter].selected).filter(Boolean).length;
+  $('#selectedSkillsCount').textContent = `${selectedCount} / 2`;
+  renderActiveSkillSlots();
+  const grid = $('#skillsGrid');
+  if (!grid) return;
+  grid.innerHTML = getSkillList().map((skill, index) => {
+    const unlocked = isSkillUnlocked(index);
+    const selected = isSkillSelected(index);
+    const level = getSkillLevel(activeCharacter, index);
+    const maxed = level >= SKILL_MAX_LEVEL;
+    const cost = getSkillUpgradeCost(index);
+    const jenny = Number(localStorage.getItem('hxh_jenny') || 0);
+    const power = getSkillPower(skill, index);
+    const mana = getSkillManaCost(skill, index);
+    const unlock = SKILL_UNLOCK_LEVELS[index];
+    const tags = Array.isArray(skill.tags) ? skill.tags.join(' • ') : '';
+    return `<article class="skill-card ${unlocked ? '' : 'locked'} ${selected ? 'selected' : ''}">
+      <button class="skill-select" data-skill-select="${index}" type="button" ${unlocked ? '' : 'disabled'} aria-label="${selected ? 'Снять выбор' : 'Выбрать навык'}">
+        <span class="skill-icon"><img src="${getSkillIconPath(activeCharacter,index)}" alt=""></span>
+        <span class="skill-main">
+          <span class="skill-title"><b>${skill.name}</b><em>Ур. ${level}</em></span>
+          <span class="skill-desc">${unlocked ? skill.desc : `Откроется на ${unlock} уровне персонажа`}</span>
+          <span class="skill-footer"><span>${unlocked ? `${tags} • ${power} силы` : `🔒 Уровень ${unlock}`}</span><strong>${selected ? 'НАДЕТ' : unlocked ? 'НАДЕТЬ' : 'ЗАКРЫТ'}</strong></span>
+        </span>
+      </button>
+      <div class="skill-upgrade">
+        <div class="skill-upgrade-meta"><span>${unlocked ? `Эффект: ${power} • Мана: ${mana} • Перезарядка: ${skill.cooldown} хода` : 'Навык недоступен'}</span><span>${maxed ? 'МАКС.' : `${formatNumber(cost)} Дженни`}</span></div>
+        <button class="skill-upgrade-btn" data-skill-upgrade="${index}" type="button" ${(!unlocked || maxed || jenny < cost) ? 'disabled' : ''}>${maxed ? 'Максимум' : 'Улучшить'}</button>
+      </div>
+    </article>`;
+  }).join('');
+  grid.querySelectorAll('[data-skill-select]').forEach(btn => btn.addEventListener('click', () => toggleSkillSelection(Number(btn.dataset.skillSelect))));
+  grid.querySelectorAll('[data-skill-upgrade]').forEach(btn => btn.addEventListener('click', () => upgradeSkill(Number(btn.dataset.skillUpgrade))));
+}
+function setupSkills() {
+  $('#openSkillsBtn')?.addEventListener('click', () => {
+    $('#skillsScreen').classList.add('visible');
+    $('#skillsScreen').setAttribute('aria-hidden', 'false');
+    renderSkills();
+  });
+  $('#closeSkillsBtn')?.addEventListener('click', () => {
+    $('#skillsScreen').classList.remove('visible');
+    $('#skillsScreen').setAttribute('aria-hidden', 'true');
+  });
+}
+
+let activeCharacter = localStorage.getItem("hxh_selected_character") || "gon";
+let nickname = localStorage.getItem("hxh_nickname") || "Hunter";
+let firstEntry = true;
+let pendingCharacter = activeCharacter;
+const SAVE_KEY = "hxh_game_save_v22";
+
+const $ = selector => document.querySelector(selector);
+const formatNumber = value => { const n=Number(value); if(!Number.isFinite(n)) return "0"; return Math.ceil(n).toLocaleString("ru-RU"); };
+
+function xpRequiredForLevel(level) {
+  // XP для перехода с указанного уровня на следующий.
+  // 1→2 = 118, 2→3 = 293, 3→4 = 516.
+  if (level >= 100) return 0;
+  const n = Math.max(1, Math.floor(level));
+  return Math.max(1, Math.ceil((24 * n * n + 103 * n - 9) * 0.78));
+}
+
+function saveCharacterState(id = activeCharacter) {
+  const c = characters[id];
+  localStorage.setItem(`hxh_character_${id}`, JSON.stringify({
+    level: c.level,
+    xp: c.xp,
+    xpMax: c.xpMax,
+    primary: c.primary
+  }));
+}
+
+function loadCharacterStates() {
+  Object.entries(characters).forEach(([id, c]) => {
+    const saved = localStorage.getItem(`hxh_character_${id}`);
+    if (!saved) return;
+    try {
+      const state = JSON.parse(saved);
+      if (Number.isFinite(state.level)) c.level = state.level;
+      if (Number.isFinite(state.xp)) c.xp = state.xp;
+      if (Number.isFinite(state.xpMax)) c.xpMax = state.xpMax;
+      c.level = Math.min(100, Math.max(1, Math.floor(c.level)));
+      c.xpMax = xpRequiredForLevel(c.level);
+      if (c.level >= 100) c.xp = 0;
+      if (state.primary && typeof state.primary === "object") {
+        c.primary = { ...c.primary, ...state.primary };
+      }
+    } catch (_) {}
+  });
+}
+
+function hasLegacySavedProgress() {
+  const selected = localStorage.getItem("hxh_selected_character");
+  const characterSaved = Object.keys(characters).some(id => localStorage.getItem(`hxh_character_${id}`));
+  const inventorySaved = Object.keys(characters).some(id => localStorage.getItem(`hxh_inventory_${id}`));
+  return Boolean(selected && (characterSaved || inventorySaved));
+}
+
+function saveGameState() {
+  Object.keys(SKILLS).forEach(ensureSkillState);
+  const characterStates = {};
+  Object.entries(characters).forEach(([id, c]) => {
+    characterStates[id] = {
+      level: c.level,
+      xp: c.xp,
+      xpMax: c.xpMax,
+      primary: { ...c.primary }
+    };
+    saveCharacterState(id);
+  });
+
+  const payload = {
+    version: 31,
+    activeCharacter,
+    nickname,
+    nenGems: Number(localStorage.getItem("hxh_nen_gems") || 0),
+    characters: characterStates,
+    skills: skillState
+  };
+  localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
+  localStorage.setItem("hxh_selected_character", activeCharacter);
+  localStorage.setItem("hxh_nickname", nickname);
+}
+
+function loadGameState() {
+  const raw = localStorage.getItem(SAVE_KEY);
+  if (raw) {
+    try {
+      const state = JSON.parse(raw);
+      if (state && typeof state === "object") {
+        if (characters[state.activeCharacter]) activeCharacter = state.activeCharacter;
+        if (typeof state.nickname === "string" && state.nickname.trim()) nickname = state.nickname;
+        if (Number.isFinite(Number(state.nenGems))) {
+          localStorage.setItem("hxh_nen_gems", String(Math.max(0, Number(state.nenGems))));
+        }
+        if (state.skills && typeof state.skills === "object") {
+          Object.entries(state.skills).forEach(([id, saved]) => {
+            if (!SKILLS[id] || !saved) return;
+            skillState[id] = { selected: {}, levels: {} };
+            if (saved.selected && typeof saved.selected === "object") {
+              Object.entries(saved.selected).forEach(([index, value]) => { if (value) skillState[id].selected[index] = true; });
+            }
+            if (saved.levels && typeof saved.levels === "object") {
+              Object.entries(saved.levels).forEach(([index, value]) => {
+                const n = Number(value);
+                if (Number.isFinite(n)) skillState[id].levels[index] = Math.max(1, Math.min(SKILL_MAX_LEVEL, Math.floor(n)));
+              });
+            }
+            ensureSkillState(id);
+          });
+        }
+        if (state.characters && typeof state.characters === "object") {
+          Object.entries(state.characters).forEach(([id, saved]) => {
+            if (!characters[id] || !saved) return;
+            if (Number.isFinite(saved.level)) characters[id].level = saved.level;
+            if (Number.isFinite(saved.xp)) characters[id].xp = saved.xp;
+            characters[id].xpMax = xpRequiredForLevel(characters[id].level);
+            if (characters[id].level >= 100) characters[id].xp = 0;
+            if (saved.primary && typeof saved.primary === "object") {
+              characters[id].primary = { ...characters[id].primary, ...saved.primary };
+            }
+          });
+        }
+        localStorage.setItem("hxh_selected_character", activeCharacter);
+        localStorage.setItem("hxh_nickname", nickname);
+        return true;
+      }
+    } catch (_) {}
+  }
+
+  // Миграция старого сохранения v0.21: ничего не теряем.
+  if (hasLegacySavedProgress()) {
+    return true;
+  }
+  return false;
+}
+
+function getEquippedStatBonuses() {
+  const bonuses = { strength: 0, health: 0, defense: 0, mana: 0, critDamage: 0, critChance: 0, vampirism: 0, evasion: 0 };
+  Object.values(equipped || {}).forEach(item => {
+    if (!item || !item.stats) return;
+    Object.entries(item.stats).forEach(([rawKey, value]) => {
+      const key = rawKey === 'crit' ? 'critChance' : rawKey;
+      if (key in bonuses) bonuses[key] += Number(value || 0);
+    });
+  });
+  return bonuses;
+}
+
+function getEffectivePrimaryStats(c) {
+  const bonuses = getEquippedStatBonuses();
+  return {
+    strength: Number(c.primary.strength || 0) + bonuses.strength,
+    health: Number(c.primary.health || 0) + bonuses.health,
+    defense: Number(c.primary.defense || 0) + bonuses.defense,
+    mana: Number(c.primary.mana || 0) + bonuses.mana,
+    critDamage: bonuses.critDamage,
+    critChance: bonuses.critChance,
+    vampirism: bonuses.vampirism,
+    evasion: bonuses.evasion
+  };
+}
+
+function getAllNumericStats(c) {
+  const stats = getEffectivePrimaryStats(c);
+  return ['strength','health','defense','mana'].reduce((sum,key) => sum + Number(stats[key] || 0), 0);
+}
+
+function calculateAura(c) {
+  return Math.ceil(getAllNumericStats(c) / 2);
+}
+
+// При повышении уровня каждая основная характеристика получает +15% от текущего значения.
+function applyLevelUp(c) {
+  Object.keys(c.primary).forEach(key => {
+    c.primary[key] = Math.max(1, Math.round(c.primary[key] * 1.15));
+  });
+}
+
+function gainExperience(amount) {
+  const c = characters[activeCharacter];
+  if (!c || !Number.isFinite(amount) || amount <= 0) return;
+  if (c.level >= 100) return;
+  c.xp += amount;
+  while (c.level < 100 && c.xp >= xpRequiredForLevel(c.level)) {
+    c.xp -= xpRequiredForLevel(c.level);
+    c.level += 1;
+    applyLevelUp(c);
+    c.xpMax = xpRequiredForLevel(c.level);
+  }
+  if (c.level >= 100) {
+    c.level = 100;
+    c.xp = 0;
+    c.xpMax = 0;
+  }
+  saveCharacterState(activeCharacter);
+  renderAll();
+}
+
+function renderPrimaryStats(c) {
+  const stats = getEffectivePrimaryStats(c);
+  $("#primaryStats").innerHTML = primaryMeta.map(([key, name, icon, percent]) => {
+    const value = Number(stats[key] || 0);
+    return `
+      <div class="primary-stat stat-${key}">
+        <div class="primary-top">
+          <div class="stat-icon"><img src="img/icon/${icon}" alt=""></div>
+          <b>${formatNumber(value)}${percent ? "%" : ""}</b>
+        </div>
+        <div class="stat-name">${name}</div>
+      </div>`;
+  }).join("");
+}
+
+function renderSecondaryStats(c) {
+  const el=$("#secondaryStats"); if(!el)return;
+  const st=getEffectivePrimaryStats(c);
+  const data=[
+    ["critDamage","Крит. Урон","crit-damage.png"],
+    ["critChance","Шанс Крит. Удара","crit-chance.png"],
+    ["vampirism","Вампиризм","vampirism.png"],
+    ["evasion","Уклонение","evasion.png"]
+  ];
+  el.innerHTML=data.map(([key,name,icon])=>`<div class="secondary-stat"><span><img src="img/icons/${icon}" alt="">${name}</span><b>${formatNumber(st[key]||0)}%</b></div>`).join("");
+}
+
+function renderAll() {
+  const c = characters[activeCharacter] || characters.gon;
+  activeCharacter = characters[activeCharacter] ? activeCharacter : "gon";
+  $("#characterPortrait").src = c.profile;
+  $("#characterPortrait").alt = c.name;
+  $("#nicknameDisplay").textContent = nickname;
+  $("#characterClass").textContent = c.class;
+  $("#characterRank").textContent = "Аспирант";
+  $("#levelValue").textContent = c.level;
+  $("#xpCurrent").textContent = formatNumber(c.xp);
+  $("#xpMax").textContent = formatNumber(c.xpMax);
+  const xpPercent = c.level >= 100 || !c.xpMax ? 100 : Math.min(Math.round(c.xp / c.xpMax * 100), 100);
+  $("#xpFill").style.width = `${xpPercent}%`;
+  $("#auraValue").textContent = formatNumber(calculateAura(c));
+
+  renderPrimaryStats(c);
+  renderSecondaryStats(c);
+}
+
+function renderMorePage(){
+ const screen=$('#moreScreen'); if(!screen)return;
+ screen.classList.add('visible'); screen.setAttribute('aria-hidden','false');
+}
+function renderSettings(){
+ const input=$('#settingsNickname'); if(input)input.value=nickname;
+ const grid=$('#settingsCharacterGrid'); if(!grid)return;
+ grid.innerHTML=Object.entries(characters).map(([id,c])=>`<button type="button" class="settings-character ${id===activeCharacter?'active':''}" data-settings-character="${id}"><img src="${c.profile}" alt=""><span>${c.name}</span><small>${c.class} • Ур. ${formatNumber(c.level)}</small>${id===activeCharacter?'<b>ВЫБРАН</b>':'<em>БЕСПЛАТНО</em>'}</button>`).join('');
+ grid.querySelectorAll('[data-settings-character]').forEach(btn=>btn.addEventListener('click',()=>switchCharacterFromSettings(btn.dataset.settingsCharacter)));
+}
+function openSettings(){const modal=$('#settingsModal');if(!modal)return;renderSettings();$('#settingsNicknameHint').textContent='';const body=$('#settingsCharacterBody'),toggle=$('#settingsCharacterToggle');if(body){body.hidden=true;}if(toggle){toggle.setAttribute('aria-expanded','false');toggle.classList.remove('open');}modal.classList.add('visible');modal.setAttribute('aria-hidden','false');}
+function closeSettings(){const modal=$('#settingsModal');if(!modal)return;modal.classList.remove('visible');modal.setAttribute('aria-hidden','true');}
+function changeNicknameFromSettings(){
+ const input=$('#settingsNickname'),hint=$('#settingsNicknameHint'); if(!input)return;
+ const next=input.value.trim().replace(/\s+/g,' ');
+ if(!next)return hint.textContent='Введите новый ник.';
+ if(next===nickname)return hint.textContent='Это уже ваш текущий ник.';
+ const gems=Number(localStorage.getItem('hxh_nen_gems')||0);
+ if(gems<100){hint.textContent=`Недостаточно Камней Нэн. Нужно 100, у вас ${formatNumber(gems)}.`;return;}
+ localStorage.setItem('hxh_nen_gems',String(gems-100)); nickname=next; localStorage.setItem('hxh_nickname',nickname); saveGameState(); renderAll(); renderCurrencies(); renderSettings(); hint.textContent='Ник успешно изменён.';
+}
+function saveCurrentEquipmentAndClear(){
+ const currentItems=[...Object.values(equipped).filter(Boolean)];
+ if(currentItems.length){ const existing=new Set(inventory.map(x=>x.id)); currentItems.forEach(item=>{if(!existing.has(item.id))inventory.push(item);}); }
+ Object.keys(equipped).forEach(k=>equipped[k]=null);
+ inventory=inventory.slice(0,100); saveInventoryState();
+}
+function switchCharacterFromSettings(target){
+ if(!characters[target] || target===activeCharacter)return;
+ closeEquipmentModal(); closeHuntDetailModal();
+ // Снимаем всё с текущего персонажа и сохраняем в его инвентарь.
+ saveCurrentEquipmentAndClear();
+ activeCharacter=target; localStorage.setItem('hxh_selected_character',activeCharacter);
+ // Загружаем инвентарь выбранного персонажа и также снимаем его старую экипировку.
+ loadInventoryState();
+ saveCurrentEquipmentAndClear();
+ inventorySelected.clear(); inventoryMassMode=false;
+ saveGameState(); renderAll(); renderCurrencies(); renderInventory(); renderSettings(); renderSkills(); renderHunt();
+}
+function setupNavigation() {
+  const titles = { hunter: "Хантер", hunt: "Охота", rank: "Ранг", chat: "Чаты", more: "Ещё" };
+  const setTabBackground = tab => {
+    document.body.classList.remove("tab-hunter", "tab-hunt", "tab-rank", "tab-chat", "tab-more");
+    document.body.classList.add(`tab-${tab}`);
+  };
+  setTabBackground("hunter");
+  document.querySelectorAll(".nav-item").forEach(btn => btn.addEventListener("click", () => {
+    document.querySelectorAll(".nav-item").forEach(x => x.classList.remove("active"));
+    btn.classList.add("active");
+    const tab = btn.dataset.tab;
+    setTabBackground(tab);
+    // Переход в нижней навигации всегда закрывает полноэкранные подэкраны.
+    const inventoryScreen = $("#inventoryScreen");
+    if (inventoryScreen) {
+      inventoryScreen.classList.remove("visible");
+      inventoryScreen.setAttribute("aria-hidden", "true");
+    }
+    inventoryMassMode = false;
+    inventorySelected.clear();
+    const skillsScreen = $("#skillsScreen");
+    if (skillsScreen) { skillsScreen.classList.remove("visible"); skillsScreen.setAttribute("aria-hidden", "true"); }
+    const isHunter = tab === "hunter";
+    $("#hunterPage").style.display = isHunter ? "block" : "none";
+    $("#placeholderPage").classList.toggle("visible", !isHunter);
+    $("#placeholderTitle").textContent = titles[tab];
+    $("#placeholderKicker").textContent = tab.toUpperCase();
+  }));
+}
+
+function renderSelectCharacter() {
+  const box = $("#selectCharacter");
+  box.innerHTML = Object.entries(characters).map(([id, c]) => `
+    <button class="select-character-card ${id === pendingCharacter ? "active" : ""}" data-select-character="${id}" type="button">
+      <img src="${c.profile}" alt="${c.name}">
+      <strong class="select-card-name">${c.name}</strong>
+      <div class="select-card-class">${c.class}</div>
+      <div class="select-card-stats">
+        <span>Сила <b>${c.primary.strength}</b></span>
+        <span>Здор. <b>${c.primary.health}</b></span>
+        <span>Защ. <b>${c.primary.defense}</b></span>
+        <span>Мана <b>${c.primary.mana}</b></span>
+      </div>
+    </button>`).join("");
+
+  box.querySelectorAll("[data-select-character]").forEach(btn => btn.addEventListener("click", () => {
+    pendingCharacter = btn.dataset.selectCharacter;
+    renderSelectCharacter();
+    renderSelectPreview();
+    resetSelectionState();
+  }));
+}
+
+function renderSelectPreview() {
+  const c = characters[pendingCharacter];
+  $("#selectPreview").innerHTML = `
+    <img src="${c.profile}" alt="${c.name}">
+    <div class="select-info">
+      <span class="section-kicker">${c.class}</span>
+      <h3>${c.name}</h3>
+      <div class="select-rank">Аспирант</div>
+      <div class="select-stat-grid">
+        <span>Сила <b>${c.primary.strength}</b></span>
+        <span>Здоровье <b>${c.primary.health}</b></span>
+        <span>Защита <b>${c.primary.defense}</b></span>
+        <span>Мана <b>${c.primary.mana}</b></span>
+      </div>
+    </div>`;
+}
+
+function resetSelectionState() {
+  $("#selectBtn").disabled = false;
+  $("#selectBtn").classList.remove("selected");
+  $("#selectBtn").textContent = "Выбрать";
+  $("#confirmBtn").disabled = true;
+  $("#cancelSelectBtn").disabled = true;
+}
+
+function setupFirstEntry() {
+  const screen = $("#characterSelectScreen");
+  if (!firstEntry) {
+    screen.classList.add("hidden");
+    return;
+  }
+
+  renderSelectCharacter();
+  renderSelectPreview();
+  resetSelectionState();
+
+  $("#selectBtn").addEventListener("click", () => {
+    const value = $("#firstNickname").value.trim().replace(/\s+/g, " ");
+    if (!value) {
+      $("#firstNickname").focus();
+      return;
+    }
+    $("#selectBtn").classList.add("selected");
+    $("#selectBtn").textContent = "Выбор подтверждён";
+    $("#confirmBtn").disabled = false;
+    $("#cancelSelectBtn").disabled = false;
+  });
+
+  $("#cancelSelectBtn").addEventListener("click", () => {
+    resetSelectionState();
+    renderSelectCharacter();
+    renderSelectPreview();
+  });
+
+  $("#firstNickname").addEventListener("input", () => {
+    $("#selectBtn").disabled = !$("#firstNickname").value.trim();
+    $("#confirmBtn").disabled = true;
+  });
+
+  $("#confirmBtn").addEventListener("click", () => {
+    const value = $("#firstNickname").value.trim().replace(/\s+/g, " ");
+    if (!value) return;
+    activeCharacter = pendingCharacter;
+    nickname = value;
+    localStorage.setItem("hxh_selected_character", activeCharacter);
+    localStorage.setItem("hxh_nickname", nickname);
+    saveCharacterState(activeCharacter);
+    firstEntry = false;
+    screen.classList.add("hidden");
+    loadInventoryState();
+    renderAll();
+    renderInventory();
+  });
+}
+
+/* ===== INVENTORY / EQUIPMENT v31 ===== */
+const inventorySlots = ["weapon", "armor", "amulet", "ring", "artifact1", "artifact2", "artifact3"];
+const inventorySlotNames = { weapon:"Оружие", armor:"Броня", amulet:"Амулет", ring:"Кольцо", artifact1:"Артефакт", artifact2:"Артефакт", artifact3:"Артефакт" };
+const EQUIPMENT = [{"id":"gon_weapon_1","name":"Клинок Дикого Охотника","type":"weapon","rarity":"Обычный","level":1,"icon":"✦","stats":{"strength":7,"crit":1},"description":"Клинок Дикого Охотника — специализированное снаряжение класса Боец.","classId":"gon","className":"Боец","upgradeLevel":1,"image":"img/equipment/gon_eq/weapon/gon_weapon_1.jpg"},{"id":"gon_weapon_2","name":"Разрушитель Двойной Ауры","type":"weapon","rarity":"Редкий","level":1,"icon":"✦","stats":{"strength":13,"crit":2},"description":"Разрушитель Двойной Ауры — специализированное снаряжение класса Боец.","classId":"gon","className":"Боец","upgradeLevel":1,"image":"img/equipment/gon_eq/weapon/gon_weapon_2.jpg"},{"id":"gon_weapon_3","name":"Джаджанкен — Камень","type":"weapon","rarity":"Легендарный","level":1,"icon":"✦","stats":{"strength":22,"crit":4},"description":"Джаджанкен — Камень — специализированное снаряжение класса Боец.","classId":"gon","className":"Боец","upgradeLevel":1,"image":"img/equipment/gon_eq/weapon/gon_weapon_3.jpg"},{"id":"gon_armor_1","name":"Куртка Юного Охотника","type":"armor","rarity":"Обычный","level":1,"icon":"✦","stats":{"health":35,"defense":3},"description":"Куртка Юного Охотника — специализированное снаряжение класса Боец.","classId":"gon","className":"Боец","upgradeLevel":1,"image":"img/equipment/gon_eq/armor/gon_armor_1.jpg"},{"id":"gon_armor_2","name":"Доспехи Усиленной Ауры","type":"armor","rarity":"Редкий","level":1,"icon":"✦","stats":{"health":65,"defense":7},"description":"Доспехи Усиленной Ауры — специализированное снаряжение класса Боец.","classId":"gon","className":"Боец","upgradeLevel":1,"image":"img/equipment/gon_eq/armor/gon_armor_2.jpg"},{"id":"gon_armor_3","name":"Мантия Дикого Нэна","type":"armor","rarity":"Легендарный","level":1,"icon":"✦","stats":{"health":105,"defense":11},"description":"Мантия Дикого Нэна — специализированное снаряжение класса Боец.","classId":"gon","className":"Боец","upgradeLevel":1,"image":"img/equipment/gon_eq/armor/gon_armor_3.jpg"},{"id":"gon_amulet_1","name":"Кулон Первой Ауры","type":"amulet","rarity":"Обычный","level":1,"icon":"✦","stats":{"mana":10},"description":"Кулон Первой Ауры — специализированное снаряжение класса Боец.","classId":"gon","className":"Боец","upgradeLevel":1,"image":"img/equipment/gon_eq/amulet/gon_amulet_1.jpg"},{"id":"gon_amulet_2","name":"Кристалл Джаджанкен","type":"amulet","rarity":"Редкий","level":1,"icon":"✦","stats":{"mana":22,"strength":3},"description":"Кристалл Джаджанкен — специализированное снаряжение класса Боец.","classId":"gon","className":"Боец","upgradeLevel":1,"image":"img/equipment/gon_eq/amulet/gon_amulet_2.jpg"},{"id":"gon_amulet_3","name":"Сердце Большой Ауры","type":"amulet","rarity":"Легендарный","level":1,"icon":"✦","stats":{"mana":38,"strength":6},"description":"Сердце Большой Ауры — специализированное снаряжение класса Боец.","classId":"gon","className":"Боец","upgradeLevel":1,"image":"img/equipment/gon_eq/amulet/gon_amulet_3.jpg"},{"id":"gon_ring_1","name":"Кольцо Упорства","type":"ring","rarity":"Обычный","level":1,"icon":"✦","stats":{"defense":3},"description":"Кольцо Упорства — специализированное снаряжение класса Боец.","classId":"gon","className":"Боец","upgradeLevel":1,"image":"img/equipment/gon_eq/ring/gon_ring_1.jpg"},{"id":"gon_ring_2","name":"Кольцо Сильной Воли","type":"ring","rarity":"Редкий","level":1,"icon":"✦","stats":{"defense":6,"crit":2},"description":"Кольцо Сильной Воли — специализированное снаряжение класса Боец.","classId":"gon","className":"Боец","upgradeLevel":1,"image":"img/equipment/gon_eq/ring/gon_ring_2.jpg"},{"id":"gon_ring_3","name":"Кольцо Неукротимого Нэна","type":"ring","rarity":"Легендарный","level":1,"icon":"✦","stats":{"defense":10,"crit":4},"description":"Кольцо Неукротимого Нэна — специализированное снаряжение класса Боец.","classId":"gon","className":"Боец","upgradeLevel":1,"image":"img/equipment/gon_eq/ring/gon_ring_3.jpg"},{"id":"killua_weapon_1","name":"Когти Золдика","type":"weapon","rarity":"Обычный","level":1,"icon":"✦","stats":{"strength":6,"crit":3},"description":"Когти Золдика — специализированное снаряжение класса Убийца.","classId":"killua","className":"Убийца","upgradeLevel":1,"image":"img/equipment/killua_eq/weapon/killua_weapon_1.jpg"},{"id":"killua_weapon_2","name":"Иглы Бесшумного Убийцы","type":"weapon","rarity":"Редкий","level":1,"icon":"✦","stats":{"strength":12,"crit":5},"description":"Иглы Бесшумного Убийцы — специализированное снаряжение класса Убийца.","classId":"killua","className":"Убийца","upgradeLevel":1,"image":"img/equipment/killua_eq/weapon/killua_weapon_2.jpg"},{"id":"killua_weapon_3","name":"Молниеносные Когти Грома","type":"weapon","rarity":"Легендарный","level":1,"icon":"✦","stats":{"strength":20,"crit":8},"description":"Молниеносные Когти Грома — специализированное снаряжение класса Убийца.","classId":"killua","className":"Убийца","upgradeLevel":1,"image":"img/equipment/killua_eq/weapon/killua_weapon_3.jpg"},{"id":"killua_armor_1","name":"Тёмный Костюм Убийцы","type":"armor","rarity":"Обычный","level":1,"icon":"✦","stats":{"health":28,"defense":4},"description":"Тёмный Костюм Убийцы — специализированное снаряжение класса Убийца.","classId":"killua","className":"Убийца","upgradeLevel":1,"image":"img/equipment/killua_eq/armor/killua_armor_1.jpg"},{"id":"killua_armor_2","name":"Костюм Скорости","type":"armor","rarity":"Редкий","level":1,"icon":"✦","stats":{"health":50,"defense":7},"description":"Костюм Скорости — специализированное снаряжение класса Убийца.","classId":"killua","className":"Убийца","upgradeLevel":1,"image":"img/equipment/killua_eq/armor/killua_armor_2.jpg"},{"id":"killua_armor_3","name":"Доспех Белой Молнии","type":"armor","rarity":"Легендарный","level":1,"icon":"✦","stats":{"health":82,"defense":11},"description":"Доспех Белой Молнии — специализированное снаряжение класса Убийца.","classId":"killua","className":"Убийца","upgradeLevel":1,"image":"img/equipment/killua_eq/armor/killua_armor_3.jpg"},{"id":"killua_amulet_1","name":"Кристалл Скорости","type":"amulet","rarity":"Обычный","level":1,"icon":"✦","stats":{"mana":12},"description":"Кристалл Скорости — специализированное снаряжение класса Убийца.","classId":"killua","className":"Убийца","upgradeLevel":1,"image":"img/equipment/killua_eq/amulet/killua_amulet_1.jpg"},{"id":"killua_amulet_2","name":"Знак Электрической Ауры","type":"amulet","rarity":"Редкий","level":1,"icon":"✦","stats":{"mana":25,"crit":3},"description":"Знак Электрической Ауры — специализированное снаряжение класса Убийца.","classId":"killua","className":"Убийца","upgradeLevel":1,"image":"img/equipment/killua_eq/amulet/killua_amulet_2.jpg"},{"id":"killua_amulet_3","name":"Сердце Бурной Молнии","type":"amulet","rarity":"Легендарный","level":1,"icon":"✦","stats":{"mana":42,"crit":6},"description":"Сердце Бурной Молнии — специализированное снаряжение класса Убийца.","classId":"killua","className":"Убийца","upgradeLevel":1,"image":"img/equipment/killua_eq/amulet/killua_amulet_3.jpg"},{"id":"killua_ring_1","name":"Кольцо Тихого Шага","type":"ring","rarity":"Обычный","level":1,"icon":"✦","stats":{"defense":2,"crit":2},"description":"Кольцо Тихого Шага — специализированное снаряжение класса Убийца.","classId":"killua","className":"Убийца","upgradeLevel":1,"image":"img/equipment/killua_eq/ring/killua_ring_1.jpg"},{"id":"killua_ring_2","name":"Кольцо Убийцы","type":"ring","rarity":"Редкий","level":1,"icon":"✦","stats":{"defense":5,"crit":4},"description":"Кольцо Убийцы — специализированное снаряжение класса Убийца.","classId":"killua","className":"Убийца","upgradeLevel":1,"image":"img/equipment/killua_eq/ring/killua_ring_2.jpg"},{"id":"killua_ring_3","name":"Кольцо Бесшумного Грома","type":"ring","rarity":"Легендарный","level":1,"icon":"✦","stats":{"defense":8,"crit":7},"description":"Кольцо Бесшумного Грома — специализированное снаряжение класса Убийца.","classId":"killua","className":"Убийца","upgradeLevel":1,"image":"img/equipment/killua_eq/ring/killua_ring_3.jpg"},{"id":"hisoka_weapon_1","name":"Карты Трикстера","type":"weapon","rarity":"Обычный","level":1,"icon":"✦","stats":{"strength":6,"crit":2},"description":"Карты Трикстера — специализированное снаряжение класса Маг.","classId":"hisoka","className":"Маг","upgradeLevel":1,"image":"img/equipment/hisoka_eq/weapon/hisoka_weapon_1.jpg"},{"id":"hisoka_weapon_2","name":"Клинок Банджи Гам","type":"weapon","rarity":"Редкий","level":1,"icon":"✦","stats":{"strength":11,"crit":4},"description":"Клинок Банджи Гам — специализированное снаряжение класса Маг.","classId":"hisoka","className":"Маг","upgradeLevel":1,"image":"img/equipment/hisoka_eq/weapon/hisoka_weapon_2.jpg"},{"id":"hisoka_weapon_3","name":"Колода Красного Джокера","type":"weapon","rarity":"Легендарный","level":1,"icon":"✦","stats":{"strength":18,"crit":7},"description":"Колода Красного Джокера — специализированное снаряжение класса Маг.","classId":"hisoka","className":"Маг","upgradeLevel":1,"image":"img/equipment/hisoka_eq/weapon/hisoka_weapon_3.jpg"},{"id":"hisoka_armor_1","name":"Плащ Фокусника","type":"armor","rarity":"Обычный","level":1,"icon":"✦","stats":{"health":24,"defense":4},"description":"Плащ Фокусника — специализированное снаряжение класса Маг.","classId":"hisoka","className":"Маг","upgradeLevel":1,"image":"img/equipment/hisoka_eq/armor/hisoka_armor_1.jpg"},{"id":"hisoka_armor_2","name":"Костюм Магической Схемы","type":"armor","rarity":"Редкий","level":1,"icon":"✦","stats":{"health":45,"defense":7},"description":"Костюм Магической Схемы — специализированное снаряжение класса Маг.","classId":"hisoka","className":"Маг","upgradeLevel":1,"image":"img/equipment/hisoka_eq/armor/hisoka_armor_2.jpg"},{"id":"hisoka_armor_3","name":"Мантия Трансмутации","type":"armor","rarity":"Легендарный","level":1,"icon":"✦","stats":{"health":75,"defense":10},"description":"Мантия Трансмутации — специализированное снаряжение класса Маг.","classId":"hisoka","className":"Маг","upgradeLevel":1,"image":"img/equipment/hisoka_eq/armor/hisoka_armor_3.jpg"},{"id":"hisoka_amulet_1","name":"Кулон Иллюзий","type":"amulet","rarity":"Обычный","level":1,"icon":"✦","stats":{"mana":18},"description":"Кулон Иллюзий — специализированное снаряжение класса Маг.","classId":"hisoka","className":"Маг","upgradeLevel":1,"image":"img/equipment/hisoka_eq/amulet/hisoka_amulet_1.jpg"},{"id":"hisoka_amulet_2","name":"Око Трикстера","type":"amulet","rarity":"Редкий","level":1,"icon":"✦","stats":{"mana":32,"crit":2},"description":"Око Трикстера — специализированное снаряжение класса Маг.","classId":"hisoka","className":"Маг","upgradeLevel":1,"image":"img/equipment/hisoka_eq/amulet/hisoka_amulet_2.jpg"},{"id":"hisoka_amulet_3","name":"Сердце Трансмутации","type":"amulet","rarity":"Легендарный","level":1,"icon":"✦","stats":{"mana":52,"crit":5},"description":"Сердце Трансмутации — специализированное снаряжение класса Маг.","classId":"hisoka","className":"Маг","upgradeLevel":1,"image":"img/equipment/hisoka_eq/amulet/hisoka_amulet_3.jpg"},{"id":"hisoka_ring_1","name":"Кольцо Фокуса","type":"ring","rarity":"Обычный","level":1,"icon":"✦","stats":{"defense":2,"crit":2},"description":"Кольцо Фокуса — специализированное снаряжение класса Маг.","classId":"hisoka","className":"Маг","upgradeLevel":1,"image":"img/equipment/hisoka_eq/ring/hisoka_ring_1.jpg"},{"id":"hisoka_ring_2","name":"Кольцо Обманщика","type":"ring","rarity":"Редкий","level":1,"icon":"✦","stats":{"defense":5,"crit":4},"description":"Кольцо Обманщика — специализированное снаряжение класса Маг.","classId":"hisoka","className":"Маг","upgradeLevel":1,"image":"img/equipment/hisoka_eq/ring/hisoka_ring_2.jpg"},{"id":"hisoka_ring_3","name":"Кольцо Непредсказуемости","type":"ring","rarity":"Легендарный","level":1,"icon":"✦","stats":{"defense":8,"crit":7},"description":"Кольцо Непредсказуемости — специализированное снаряжение класса Маг.","classId":"hisoka","className":"Маг","upgradeLevel":1,"image":"img/equipment/hisoka_eq/ring/hisoka_ring_3.jpg"},{"id":"kurapika_weapon_1","name":"Клинок Алой Цепи","type":"weapon","rarity":"Обычный","level":1,"icon":"✦","stats":{"strength":7,"crit":1},"description":"Клинок Алой Цепи — специализированное снаряжение класса Маг-боец.","classId":"kurapika","className":"Маг-боец","upgradeLevel":1,"image":"img/equipment/kurapika_eq/weapon/kurapika_weapon_1.jpg"},{"id":"kurapika_weapon_2","name":"Клинок Алых Глаз","type":"weapon","rarity":"Редкий","level":1,"icon":"✦","stats":{"strength":12,"crit":3},"description":"Клинок Алых Глаз — специализированное снаряжение класса Маг-боец.","classId":"kurapika","className":"Маг-боец","upgradeLevel":1,"image":"img/equipment/kurapika_eq/weapon/kurapika_weapon_2.jpg"},{"id":"kurapika_weapon_3","name":"Императорская Цепь","type":"weapon","rarity":"Легендарный","level":1,"icon":"✦","stats":{"strength":19,"crit":6},"description":"Императорская Цепь — специализированное снаряжение класса Маг-боец.","classId":"kurapika","className":"Маг-боец","upgradeLevel":1,"image":"img/equipment/kurapika_eq/weapon/kurapika_weapon_3.jpg"},{"id":"kurapika_armor_1","name":"Плащ Охотника Цепей","type":"armor","rarity":"Обычный","level":1,"icon":"✦","stats":{"health":32,"defense":4},"description":"Плащ Охотника Цепей — специализированное снаряжение класса Маг-боец.","classId":"kurapika","className":"Маг-боец","upgradeLevel":1,"image":"img/equipment/kurapika_eq/armor/kurapika_armor_1.jpg"},{"id":"kurapika_armor_2","name":"Доспех Красных Глаз","type":"armor","rarity":"Редкий","level":1,"icon":"✦","stats":{"health":58,"defense":8},"description":"Доспех Красных Глаз — специализированное снаряжение класса Маг-боец.","classId":"kurapika","className":"Маг-боец","upgradeLevel":1,"image":"img/equipment/kurapika_eq/armor/kurapika_armor_2.jpg"},{"id":"kurapika_armor_3","name":"Мантия Императора Нэна","type":"armor","rarity":"Легендарный","level":1,"icon":"✦","stats":{"health":94,"defense":12},"description":"Мантия Императора Нэна — специализированное снаряжение класса Маг-боец.","classId":"kurapika","className":"Маг-боец","upgradeLevel":1,"image":"img/equipment/kurapika_eq/armor/kurapika_armor_3.jpg"},{"id":"kurapika_amulet_1","name":"Кулон Алой Ауры","type":"amulet","rarity":"Обычный","level":1,"icon":"✦","stats":{"mana":15},"description":"Кулон Алой Ауры — специализированное снаряжение класса Маг-боец.","classId":"kurapika","className":"Маг-боец","upgradeLevel":1,"image":"img/equipment/kurapika_eq/amulet/kurapika_amulet_1.jpg"},{"id":"kurapika_amulet_2","name":"Кристалл Императора","type":"amulet","rarity":"Редкий","level":1,"icon":"✦","stats":{"mana":28,"strength":3},"description":"Кристалл Императора — специализированное снаряжение класса Маг-боец.","classId":"kurapika","className":"Маг-боец","upgradeLevel":1,"image":"img/equipment/kurapika_eq/amulet/kurapika_amulet_2.jpg"},{"id":"kurapika_amulet_3","name":"Сердце Красных Глаз","type":"amulet","rarity":"Легендарный","level":1,"icon":"✦","stats":{"mana":46,"strength":6},"description":"Сердце Красных Глаз — специализированное снаряжение класса Маг-боец.","classId":"kurapika","className":"Маг-боец","upgradeLevel":1,"image":"img/equipment/kurapika_eq/amulet/kurapika_amulet_3.jpg"},{"id":"kurapika_ring_1","name":"Кольцо Цепи","type":"ring","rarity":"Обычный","level":1,"icon":"✦","stats":{"defense":3,"crit":1},"description":"Кольцо Цепи — специализированное снаряжение класса Маг-боец.","classId":"kurapika","className":"Маг-боец","upgradeLevel":1,"image":"img/equipment/kurapika_eq/ring/kurapika_ring_1.jpg"},{"id":"kurapika_ring_2","name":"Кольцо Правосудия","type":"ring","rarity":"Редкий","level":1,"icon":"✦","stats":{"defense":6,"crit":3},"description":"Кольцо Правосудия — специализированное снаряжение класса Маг-боец.","classId":"kurapika","className":"Маг-боец","upgradeLevel":1,"image":"img/equipment/kurapika_eq/ring/kurapika_ring_2.jpg"},{"id":"kurapika_ring_3","name":"Кольцо Абсолютной Цепи","type":"ring","rarity":"Легендарный","level":1,"icon":"✦","stats":{"defense":10,"crit":5},"description":"Кольцо Абсолютной Цепи — специализированное снаряжение класса Маг-боец.","classId":"kurapika","className":"Маг-боец","upgradeLevel":1,"image":"img/equipment/kurapika_eq/ring/kurapika_ring_3.jpg"},{"id":"artifact_sky_cup","name":"Кубок «Вершина небес»","type":"artifact","rarity":"Мифический","level":1,"icon":"✦","stats":{"crit":6,"health":32,"strength":9},"description":"Редкий реликт охотников. Усиливает шанс критического удара и общую мощь.","classId":"all","className":"Все классы","upgradeLevel":1,"image":"img/equipment/artifacts/artifact_sky_cup.jpg"},{"id":"artifact_nen_core","name":"Ядро Первозданного Нэна","type":"artifact","rarity":"Мифический","level":1,"icon":"✦","stats":{"mana":55,"defense":6,"crit":4},"description":"Концентрированное ядро Нэна, стабилизирующее ауру владельца.","classId":"all","className":"Все классы","upgradeLevel":1,"image":"img/equipment/artifacts/artifact_nen_core.jpg"},{"id":"artifact_hunter_seal","name":"Печать Звёздного Охотника","type":"artifact","rarity":"Легендарный","level":1,"icon":"✦","stats":{"strength":7,"health":45,"crit":4},"description":"Знак признания мастеров охоты, наполненный плотной аурой.","classId":"all","className":"Все классы","upgradeLevel":1,"image":"img/equipment/artifacts/artifact_hunter_seal.jpg"},{"id":"artifact_red_chain","name":"Осколок Алой Цепи","type":"artifact","rarity":"Легендарный","level":1,"icon":"✦","stats":{"mana":30,"defense":9,"crit":3},"description":"Фрагмент цепи с аурой контроля.","classId":"all","className":"Все классы","upgradeLevel":1,"image":"img/equipment/artifacts/artifact_red_chain.jpg"},{"id":"artifact_lightning","name":"Сердце Белой Молнии","type":"artifact","rarity":"Легендарный","level":1,"icon":"✦","stats":{"strength":8,"mana":28,"crit":5},"description":"Реликвия, в которой застыла стремительная электрическая аура.","classId":"all","className":"Все классы","upgradeLevel":1,"image":"img/equipment/artifacts/artifact_lightning.jpg"},{"id":"artifact_bungee","name":"Ядро Банджи Гам","type":"artifact","rarity":"Легендарный","level":1,"icon":"✦","stats":{"health":38,"mana":34,"crit":4},"description":"Странный артефакт с эластичной, меняющейся аурой.","classId":"all","className":"Все классы","upgradeLevel":1,"image":"img/equipment/artifacts/artifact_bungee.jpg"},{"id":"artifact_jajanken","name":"Камень Нэна «Джаджанкен»","type":"artifact","rarity":"Легендарный","level":1,"icon":"✦","stats":{"strength":11,"health":42,"defense":4},"description":"Плотный камень ауры, заточенный под прямую силу.","classId":"all","className":"Все классы","upgradeLevel":1,"image":"img/equipment/artifacts/artifact_jajanken.jpg"},{"id":"artifact_assassin","name":"Маска Беззвучного Убийцы","type":"artifact","rarity":"Легендарный","level":1,"icon":"✦","stats":{"crit":7,"defense":7,"health":24},"description":"Реликвия скрытного движения и точного удара.","classId":"all","className":"Все классы","upgradeLevel":1,"image":"img/equipment/artifacts/artifact_assassin.jpg"},{"id":"artifact_emperor","name":"Око Императора","type":"artifact","rarity":"Мифический","level":1,"icon":"✦","stats":{"crit":5,"strength":8,"mana":45,"defense":5},"description":"Артефакт абсолютной концентрации и контроля Нэна.","classId":"all","className":"Все классы","upgradeLevel":1,"image":"img/equipment/artifacts/artifact_emperor.jpg"}];
+const equipmentById = Object.fromEntries(EQUIPMENT.map(item => [item.id,item]));
+const EQUIPMENT_CLASS = { gon:"Боец", killua:"Убийца", hisoka:"Маг", kurapika:"Маг-боец" };
+let inventory = [];
+let equipped = { weapon:null, armor:null, amulet:null, ring:null, artifact1:null, artifact2:null, artifact3:null };
+let inventoryMassMode = false;
+let inventorySelected = new Set();
+let inventorySeeded = false;
+let selectedInventoryItemId = null;
+
+function inventoryStorageKey(id = activeCharacter){ return `hxh_inventory_${id}`; }
+function saveInventoryState(){ localStorage.setItem(inventoryStorageKey(), JSON.stringify({inventory,equipped,seeded:true})); if(typeof saveGameState==='function'&&!firstEntry) saveGameState(); }
+function cloneEquipment(item){ return item ? JSON.parse(JSON.stringify(item)) : null; }
+function getInventoryClassAllowed(item){ return !item || (item.classId==='all' || item.classId===activeCharacter) && Number(item.itemLevel||item.level||1) <= Number(characters[activeCharacter]?.level||1); }
+function getUpgradeCost(item){ const level=Math.max(1,Number(item.upgradeLevel||1)); const base={"Обычный":250,"Редкий":700,"Легендарный":1800,"Мифический":5000}[item.rarity]||250; return Math.round(base*Math.pow(1.55,level-1)); }
+function getUpgradeMultiplier(item){ return 1 + (Math.max(0,Number(item.upgradeLevel||1)-1)*0.12); }
+function getEquipmentLevelMultiplier(item){ return 1 + (Math.max(0,Number(item.itemLevel||item.level||1)-1)*0.045); }
+function getUpgradedStats(item){ const m=getUpgradeMultiplier(item)*getEquipmentLevelMultiplier(item); return Object.fromEntries(Object.entries(item.stats||{}).map(([k,v])=>[k,Math.round(Number(v)*m)])); }
+function getEquipmentImage(item){ return item?.image || ''; }
+function getRankClass(r){ return ({"Обычный":"ordinary","Редкий":"rare","Легендарный":"legendary","Мифический":"mythic"}[r]||'ordinary'); }
+function formatEquipmentStats(item){ const st=getUpgradedStats(item); const names={strength:'Сила',health:'Здоровье',defense:'Защита',mana:'Мана',crit:'Шанс крита',critChance:'Шанс крита',critDamage:'Крит. урон',vampirism:'Вампиризм',evasion:'Уклонение'}; return Object.entries(st).map(([k,v])=>`+${v}${['crit','critChance','critDamage','vampirism','evasion'].includes(k)?'%':''} ${names[k]||k}`).join(' • '); }
+function loadInventoryState(){
+  const saved=localStorage.getItem(inventoryStorageKey());
+  if(saved){ try{ const state=JSON.parse(saved); inventory=Array.isArray(state.inventory)?state.inventory.slice(0,100).map(normalizeEquipment):[]; equipped={...equipped,...(state.equipped||{})}; Object.keys(equipped).forEach(k=>equipped[k]=normalizeEquipment(equipped[k])); inventorySeeded=Boolean(state.seeded);
+      // Удаляем только тестовые стартовые предметы, которые ранее автоматически выдавались проектом.
+      const starterIds=new Set(["starter_blade","starter_guard","starter_amulet","starter_ring","starter_artifact_1","starter_artifact_2","starter_artifact_3","gon_weapon_1","killua_weapon_1","hisoka_weapon_1","kurapika_weapon_1"]);
+      // Remove legacy test/starter gear from both inventory and equipped slots.
+      inventory=inventory.filter(item=>!starterIds.has(item?.id) && !item?.testStarter);
+      Object.keys(equipped).forEach(k=>{ if(equipped[k]?.testStarter || starterIds.has(equipped[k]?.id)) equipped[k]=null; });
+      // Persist the cleaned state immediately so removed test gear cannot return after reload.
+      localStorage.setItem(inventoryStorageKey(), JSON.stringify({inventory,equipped,seeded:true}));
+      saveInventoryState();
+      return; }catch(_){} }
+  // Новым персонажам больше не выдаём тестовое стартовое снаряжение. Дроп будет приходить из охоты.
+  inventory=[]; equipped={weapon:null,armor:null,amulet:null,ring:null,artifact1:null,artifact2:null,artifact3:null}; inventorySeeded=true; saveInventoryState();
+}
+function rebalanceEquipmentPercentStats(item){
+  if(!item?.stats) return item;
+  const level=Math.max(1,Number(item.itemLevel||item.level||1));
+  const rarityTier={"Обычный":0,"Редкий":1,"Легендарный":2,"Мифический":3}[item.rarity]||0;
+  const levelStep=Math.max(0,Math.floor((level-1)/8));
+  const caps={
+    critChance: Math.min(14, 1+levelStep+rarityTier),
+    critDamage: Math.min(28, 3+Math.floor((level-1)/6)+rarityTier*2),
+    vampirism: Math.min(8, 1+Math.floor((level-1)/10)+rarityTier),
+    evasion: Math.min(10, 1+Math.floor((level-1)/8)+rarityTier)
+  };
+  Object.keys(caps).forEach(k=>{ if(item.stats[k]!=null) item.stats[k]=Math.max(1,Math.min(caps[k],Math.ceil(Number(item.stats[k])||1))); });
+  return item;
+}
+function normalizeEquipment(item){ if(!item)return null; const base=equipmentById[item.id]; const merged=base?{...cloneEquipment(base),...item}:{...item,classId:item.classId||activeCharacter,className:item.className||EQUIPMENT_CLASS[activeCharacter]||'Все классы',image:item.image||''}; merged.stats={...(base?.stats||{}),...(item.stats||{})}; if(merged.stats.crit!=null && merged.stats.critChance==null){ merged.stats.critChance=merged.stats.crit; delete merged.stats.crit; } merged.itemLevel=Math.max(1,Number(item.itemLevel||item.level||base?.level||1)); merged.upgradeLevel=Math.max(1,Number(item.upgradeLevel||1)); merged.level=merged.itemLevel; rebalanceEquipmentPercentStats(merged); return merged; }
+const EQUIPMENT_BONUS_POOLS = {
+  gon: { weapon:[['strength',5,11],['critChance',1,4],['critDamage',3,7],['vampirism',1,3]], armor:[['health',25,55],['defense',3,7],['evasion',1,2]], amulet:[['mana',10,24],['strength',2,5],['critDamage',3,7]], ring:[['defense',2,5],['critChance',1,3],['vampirism',1,3]] },
+  killua: { weapon:[['strength',4,9],['critChance',2,6],['evasion',2,5],['vampirism',1,3]], armor:[['health',20,45],['defense',2,6],['evasion',2,5]], amulet:[['mana',10,24],['critChance',2,5],['evasion',1,3]], ring:[['defense',1,4],['critChance',2,5],['evasion',2,4]] },
+  hisoka: { weapon:[['strength',5,10],['critChance',1,4],['critDamage',5,10],['vampirism',1,3]], armor:[['health',18,42],['defense',2,5],['evasion',1,3]], amulet:[['mana',16,34],['critDamage',4,9],['critChance',1,3]], ring:[['defense',1,4],['critDamage',4,8],['evasion',1,3]] },
+  kurapika: { weapon:[['strength',5,10],['critChance',1,4],['critDamage',4,8],['vampirism',1,3]], armor:[['health',24,50],['defense',3,7],['evasion',1,3]], amulet:[['mana',14,30],['strength',2,5],['critChance',1,3]], ring:[['defense',2,5],['critChance',1,4],['critDamage',3,7]] }
+};
+const RARITY_BONUS_COUNT = { 'Обычный':1, 'Редкий':2, 'Легендарный':3, 'Мифический':4 };
+const RARITY_LEVEL_MULT = { 'Обычный':1, 'Редкий':1.10, 'Легендарный':1.22, 'Мифический':1.38 };
+function randInt(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+function getEquipmentRollSignature(item){
+  if(!item) return '';
+  const stats=Object.entries(item.stats||{}).sort(([a],[b])=>a.localeCompare(b)).map(([k,v])=>`${k}:${v}`).join('|');
+  return [item.name,item.classId,item.type,item.rarity,item.itemLevel||item.level||1,stats].join('::');
+}
+function getExistingEquipmentRolls(){
+  const list=[...(Array.isArray(inventory)?inventory:[]),...Object.values(equipped||{})].filter(Boolean);
+  return new Set(list.map(getEquipmentRollSignature));
+}
+function rollEquipmentStats(template,classId,type,level,rarity){
+  const mult=(1+Math.max(0,level-1)*0.045)*(RARITY_LEVEL_MULT[rarity]||1);
+  const stats={};
+  Object.entries(template.stats||{}).forEach(([rawKey,v])=>{
+    const key=rawKey==='crit'?'critChance':rawKey;
+    stats[key]=Math.max(1,Math.round(Number(v)*mult));
+  });
+  const pool=EQUIPMENT_BONUS_POOLS[classId]?.[type]||[];
+  const count=Math.min(RARITY_BONUS_COUNT[rarity]||1,pool.length);
+  const shuffled=[...pool].sort(()=>Math.random()-.5).slice(0,count);
+  shuffled.forEach(([key,min,max])=>{
+    const value=randInt(Math.max(1,Math.round(min*mult)),Math.max(1,Math.round(max*mult)));
+    stats[key]=(stats[key]||0)+value;
+  });
+  const normalized={...template,stats};
+  rebalanceEquipmentPercentStats(normalized);
+  return normalized.stats;
+}
+function generateEquipmentDrop(classId,type,itemLevel,rarity='Обычный',templateId=null){
+  const template = templateId ? equipmentById[templateId] : EQUIPMENT.find(x=>x.classId===classId&&x.type===type);
+  if(!template) return null;
+  const level=Math.max(1,Number(itemLevel)||1);
+  const existing=getExistingEquipmentRolls();
+  let stats={};
+  let signature='';
+  for(let attempt=0;attempt<40;attempt++){
+    stats=rollEquipmentStats(template,classId,type,level,rarity);
+    const preview={name:template.name,classId,type,rarity,itemLevel:level,stats};
+    signature=getEquipmentRollSignature(preview);
+    if(!existing.has(signature)) break;
+  }
+  const item=cloneEquipment(template);
+  item.id=`drop_${Date.now()}_${Math.random().toString(36).slice(2,10)}`;
+  item.itemLevel=level; item.level=level; item.upgradeLevel=1; item.rarity=rarity; item.stats=stats;
+  item.rollId=`roll_${Date.now()}_${Math.random().toString(36).slice(2,10)}`;
+  item.description=`${template.name} — случайная находка охотника ${level} уровня. Этот экземпляр имеет индивидуально сгенерированные свойства.`;
+  return item;
+}
+function generateRandomEquipmentDrop(classId=activeCharacter,type='weapon',itemLevel=Math.max(1,characters[activeCharacter]?.level||1),rarity='Обычный'){ return generateEquipmentDrop(classId,type,itemLevel,rarity); }
+function generateRandomEquipmentDrop(classId=activeCharacter,type='weapon',itemLevel=Math.max(1,characters[activeCharacter]?.level||1),rarity='Обычный'){ return generateEquipmentDrop(classId,type,itemLevel,rarity); }
+
+function getEquipmentPowerScore(item){
+  if(!item) return -Infinity;
+  const st=getUpgradedStats(item);
+  return Number(st.strength||0)*4 + Number(st.health||0)*0.5 + Number(st.defense||0)*4 + Number(st.mana||0)*0.75 + Number(st.critChance||st.crit||0)*8 + Number(st.critDamage||0)*4 + Number(st.vampirism||0)*10 + Number(st.evasion||0)*10;
+}
+function autoEquipBest(){
+  if(inventoryMassMode)return;
+  const playerLevel=Number(characters[activeCharacter]?.level||1);
+  const allowed=inventory.filter(item=>item && getInventoryClassAllowed(item));
+  const changed=[];
+  ['weapon','armor','amulet','ring'].forEach(type=>{
+    const candidates=allowed.filter(x=>x.type===type).sort((a,b)=>getEquipmentPowerScore(b)-getEquipmentPowerScore(a));
+    const best=candidates[0]; if(!best)return;
+    const current=equipped[type];
+    if(!current || getEquipmentPowerScore(best)>getEquipmentPowerScore(current)){
+      const idx=inventory.findIndex(x=>x.id===best.id); if(idx<0)return;
+      const previous=equipped[type]; equipped[type]=best; inventory.splice(idx,1); if(previous)inventory.unshift(previous); changed.push(best.name);
+    }
+  });
+  const artifacts=allowed.filter(x=>x.type==='artifact').sort((a,b)=>getEquipmentPowerScore(b)-getEquipmentPowerScore(a));
+  if(artifacts.length){
+    const currentArtifacts=inventorySlots.filter(s=>s.startsWith('artifact')).map(s=>equipped[s]).filter(Boolean);
+    artifacts.slice(0,3).forEach(best=>{
+      const worstSlot=inventorySlots.filter(s=>s.startsWith('artifact')).sort((a,b)=>getEquipmentPowerScore(equipped[a])-getEquipmentPowerScore(equipped[b]))[0];
+      if(!worstSlot)return;
+      const worst=equipped[worstSlot];
+      if(!worst || getEquipmentPowerScore(best)>getEquipmentPowerScore(worst)){
+        const idx=inventory.findIndex(x=>x.id===best.id); if(idx<0)return;
+        equipped[worstSlot]=best; inventory.splice(idx,1); if(worst)inventory.unshift(worst); changed.push(best.name);
+      }
+    });
+  }
+  if(changed.length){saveInventoryState();renderInventory();renderAll();setInventoryHint(`Надето лучшее: ${changed.length} предмет(а)`);}else setInventoryHint('Лучшее снаряжение уже надето');
+}
+function getInventorySlotForItem(item){ if(!item)return null; if(item.type==='artifact') return ['artifact1','artifact2','artifact3'].find(slot=>!equipped[slot])||null; return item.type; }
+function equipItem(itemId){
+  if(inventoryMassMode)return toggleInventorySelection(itemId);
+  const index=inventory.findIndex(x=>x.id===itemId); if(index<0)return;
+  const item=inventory[index];
+  if(!getInventoryClassAllowed(item)){ const itemLevel=Number(item.itemLevel||item.level||1); const playerLevel=Number(characters[activeCharacter]?.level||1); if(itemLevel>playerLevel) setInventoryHint(`Нельзя надеть: уровень снаряжения ${itemLevel}, ваш уровень ${playerLevel}`); else setInventoryHint(`Это снаряжение предназначено для класса «${item.className}»`); return; }
+  const slot=getInventorySlotForItem(item); if(!slot){ setInventoryHint('Все 3 слота артефактов заняты'); return; }
+  const previous=equipped[slot]; equipped[slot]=item; inventory.splice(index,1); if(previous)inventory.unshift(previous); inventorySelected.delete(itemId); saveInventoryState(); renderInventory(); renderAll();
+}
+function unequipItem(slot){ const item=equipped[slot]; if(!item)return; if(inventory.length>=100){setInventoryHint('Инвентарь заполнен: 100 / 100');return;} inventory.push(item); equipped[slot]=null; saveInventoryState(); renderInventory(); renderAll(); }
+function setInventoryHint(text){ const label=$('#inventorySelectedLabel'); if(!label)return; label.textContent=text; clearTimeout(setInventoryHint.timer); setInventoryHint.timer=setTimeout(()=>{label.textContent='Нажми на предмет, чтобы открыть описание';},2200); }
+function getAllUnequippedItems(){return inventory.filter(Boolean);}
+function deleteInventoryItems(ids){const set=new Set(ids);inventory=inventory.filter(x=>!set.has(x.id));ids.forEach(id=>inventorySelected.delete(id));saveInventoryState();renderInventory();}
+function dismantleInventoryItems(ids){const set=new Set(ids);const count=inventory.filter(x=>set.has(x.id)).length;if(!count)return;inventory=inventory.filter(x=>!set.has(x.id));inventorySelected.clear();const cur=Number(localStorage.getItem('hxh_nen_gems')||0);localStorage.setItem('hxh_nen_gems',String(cur+count*2));renderCurrencies();saveInventoryState();renderInventory();setInventoryHint(`Разобрано: +${count*2} Камней Нэн`);}
+function renderCurrencies(){const j=Number(localStorage.getItem('hxh_jenny')||0);const je=$('#jennyValue');if(je)je.textContent=formatNumber(j);const g=Number(localStorage.getItem('hxh_nen_gems')||0);const ge=$('#nenGemValue');if(ge)ge.textContent=formatNumber(g);}
+function renderEquipmentSlot(slot){
+  const button=document.querySelector(`[data-equip-slot="${slot}"]`); if(!button)return; const item=equipped[slot]; button.classList.toggle('filled',Boolean(item)); button.className=`equipment-slot ${slot.includes('artifact')?'artifact-slot':''} ${item?'filled':''} ${item?'rank-'+getRankClass(item.rarity):''}`;
+  if(!item){button.innerHTML=`<span class="slot-icon">${slot==='weapon'?'⚔':slot==='armor'?'◈':slot==='amulet'?'◇':slot==='ring'?'○':'✦'}</span><small>${inventorySlotNames[slot]}</small>`;button.title='Пустой слот';return;}
+  button.innerHTML=`<img src="${getEquipmentImage(item)}" alt="${item.name}"><small>${inventorySlotNames[slot]}</small>`;button.title=`${item.name} • ${item.rarity} • Ур. ${item.upgradeLevel||1}`;
+}
+function openEquipmentModal(itemId){ const item=inventory.find(x=>x.id===itemId)||Object.values(equipped).find(x=>x?.id===itemId); if(!item)return; selectedInventoryItemId=item.id; renderEquipmentModal(item); $('#equipmentModal').classList.add('visible'); $('#equipmentModal').setAttribute('aria-hidden','false'); }
+function closeEquipmentModal(){ $('#equipmentModal')?.classList.remove('visible'); $('#equipmentModal')?.setAttribute('aria-hidden','true'); selectedInventoryItemId=null; }
+function renderEquipmentModal(item){
+  const st=getUpgradedStats(item), allowed=getInventoryClassAllowed(item), equippedNow=Object.values(equipped).some(x=>x?.id===item.id), cost=getUpgradeCost(item), jenny=Number(localStorage.getItem('hxh_jenny')||0), max=(item.upgradeLevel||1)>=10;
+  $('#equipmentModalContent').innerHTML=`<div class="equipment-detail rank-${getRankClass(item.rarity)}"><div class="equipment-detail-top"><div class="equipment-detail-image"><img src="${getEquipmentImage(item)}" alt="${item.name}"></div><div class="equipment-detail-info"><h3>${item.name}</h3><p>${item.description||'Снаряжение охотника.'}</p><div class="equipment-detail-row"><span>Класс</span><b>${item.className}</b></div><div class="equipment-detail-row"><span>Уровень снаряжения</span><b>${item.itemLevel||item.level||1}</b></div><div class="equipment-detail-row"><span>Улучшение</span><b>${item.upgradeLevel||1} / 10</b></div></div></div><div class="equipment-benefits"><b>ДАЁТ ПРИ ЭКИПИРОВКЕ</b><span>${Object.keys(st).length?formatEquipmentStats(item):'Нет бонусов'}</span></div><div class="equipment-detail-actions"><button type="button" id="equipmentEquipBtn" ${!allowed?'disabled':''}>${equippedNow?'Снять':'Надеть'}</button><button type="button" id="equipmentUpgradeBtn" ${max||jenny<cost?'disabled':''}>${max?'МАКС.':`Улучшить • ${formatNumber(cost)} Дженни`}</button></div><div class="equipment-restriction">${allowed?'Подходит текущему персонажу':(Number(item.itemLevel||item.level||1)>Number(characters[activeCharacter]?.level||1)?'Нельзя надеть: уровень снаряжения выше вашего':'Нельзя надеть: нужен класс «'+item.className+'»')}</div></div>`;
+  $('#equipmentEquipBtn')?.addEventListener('click',()=>{ if(equippedNow){const slot=Object.keys(equipped).find(k=>equipped[k]?.id===item.id);if(slot)unequipItem(slot);}else equipItem(item.id);closeEquipmentModal(); });
+  $('#equipmentUpgradeBtn')?.addEventListener('click',()=>upgradeEquipment(item.id));
+}
+function upgradeEquipment(itemId){
+  const item=inventory.find(x=>x.id===itemId)||Object.values(equipped).find(x=>x?.id===itemId); if(!item)return; if((item.upgradeLevel||1)>=10)return; const cost=getUpgradeCost(item);const cur=Number(localStorage.getItem('hxh_jenny')||0);if(cur<cost)return;localStorage.setItem('hxh_jenny',String(cur-cost));item.upgradeLevel=(item.upgradeLevel||1)+1;item.level=item.itemLevel||item.level||1;saveInventoryState();renderCurrencies();renderInventory();renderAll();openEquipmentModal(item.id);
+}
+function renderInventory(){
+ const grid=$('#inventoryGrid');if(!grid)return;const items=getAllUnequippedItems();$('#inventoryCapacity').textContent=`${items.length} / 100`;document.querySelectorAll('[data-equip-slot]').forEach(btn=>renderEquipmentSlot(btn.dataset.equipSlot));
+ const portrait=$('#inventoryCharacterPortrait'),c=characters[activeCharacter]||characters.gon;if(portrait)portrait.src=c.profile;
+ grid.classList.toggle('mass-mode',inventoryMassMode);
+ grid.innerHTML=items.length?items.map(item=>`<button class="inventory-item ${inventorySelected.has(item.id)?'selected':''} rank-${getRankClass(item.rarity)}" data-inventory-id="${item.id}" type="button" title="${item.name} • ${item.rarity}"><span class="inventory-check"></span><span class="item-icon"><img src="${getEquipmentImage(item)}" alt="${item.name}"></span><span class="item-name">${item.name}</span><span class="item-level">Ур. ${formatNumber(item.itemLevel||item.level||1)}</span></button>`).join(''):`<div class="inventory-empty">Инвентарь пуст.<br><span>Снаряжение появится здесь после получения добычи.</span></div>`;
+ grid.querySelectorAll('[data-inventory-id]').forEach(btn=>btn.addEventListener('click',()=>inventoryMassMode?toggleInventorySelection(btn.dataset.inventoryId):openEquipmentModal(btn.dataset.inventoryId)));
+ $('#inventoryMassCount').textContent=`Выбрано: ${inventorySelected.size}`;$('#massToolbar').classList.toggle('visible',inventoryMassMode);$('#inventoryMassBtn').textContent=inventoryMassMode?'Готово':'Выбрать';
+}
+function toggleInventorySelection(id){if(inventorySelected.has(id))inventorySelected.delete(id);else inventorySelected.add(id);renderInventory();}
+function setInventoryMassMode(enabled){inventoryMassMode=enabled;if(!enabled)inventorySelected.clear();renderInventory();}
+function setupInventory(){
+ loadInventoryState();renderCurrencies();renderInventory();
+ $('#openInventoryBtn')?.addEventListener('click',()=>{$('#inventoryScreen').classList.add('visible');$('#inventoryScreen').setAttribute('aria-hidden','false');setInventoryMassMode(false);});
+ $('#closeInventoryBtn')?.addEventListener('click',()=>{$('#inventoryScreen').classList.remove('visible');$('#inventoryScreen').setAttribute('aria-hidden','true');setInventoryMassMode(false);});
+ document.querySelectorAll('[data-equip-slot]').forEach(button=>button.addEventListener('click',()=>{ const item=equipped[button.dataset.equipSlot]; if(item) openEquipmentModal(item.id); }));
+ $('#inventoryBestBtn')?.addEventListener('click',autoEquipBest);
+ $('#inventoryMassBtn')?.addEventListener('click',()=>setInventoryMassMode(!inventoryMassMode));
+ $('#inventorySelectAllBtn')?.addEventListener('click',()=>{const all=getAllUnequippedItems();const yes=all.length&&all.every(x=>inventorySelected.has(x.id));inventorySelected=new Set(yes?[]:all.map(x=>x.id));renderInventory();});
+ $('#inventoryDeleteSelectedBtn')?.addEventListener('click',()=>{if(!inventorySelected.size)return setInventoryHint('Сначала выбери предметы');deleteInventoryItems([...inventorySelected]);});
+  $('#equipmentModalClose')?.addEventListener('click',closeEquipmentModal);$('#equipmentModal')?.addEventListener('click',e=>{if(e.target.id==='equipmentModal')closeEquipmentModal();});
+}
+const originalRenderAll = renderAll;
+renderAll = function() {
+  originalRenderAll();
+  renderCurrencies();
+  if (document.querySelector("#inventoryScreen")?.classList.contains("visible")) renderInventory();
+};
+
+
+/* ===== HUNT + TURN BATTLE v38 ===== */
+const HUNT_ZONES = [
+  {level:1, area:'Лес экзамена', intro:'Плотный лес у места экзамена. Первые маршруты охотника, где опасность растёт постепенно.', aura:86, dungeons:[
+    {name:'Тропа ученика',desc:'Короткая лесная тропа у места экзамена. Мелкие звери, без ловушек. Первая охота для Нэн 1.',enemy:'Лесной кабан',xp:[15,35],jenny:[12,23],drop:25},
+    {name:'Гнездо лис-медведей',desc:'Густая чаща, где хищники защищают своё логово. Нужно следить за быстрыми атаками.',enemy:'Лис-медведь',xp:[22,45],jenny:[18,31],drop:28},
+    {name:'Болото экзаменаторов',desc:'Сырая низина с вязкой водой и неожиданными засадами. Здесь охотник учится держать темп.',enemy:'Болотный клыкач',xp:[28,55],jenny:[22,38],drop:30}
+  ]},
+  {level:12,area:'Скалистые земли',intro:'Каменные перевалы и хищники, привыкшие к ауре охотников.',aura:180,dungeons:[
+    {name:'Каменный перевал',desc:'Узкая тропа между скал. Ветер глушит шаги хищников.',enemy:'Каменный волк',xp:[95,145],jenny:[70,110],drop:32},{name:'Грот хищных ящеров',desc:'Тёплая пещера, где стая ящеров охраняет редкие кристаллы Нэна.',enemy:'Пещерный ящер',xp:[115,170],jenny:[82,125],drop:35},{name:'Разлом охотников',desc:'Глубокий разлом с обрывами и нестабильной аурой.',enemy:'Разломный жук',xp:[135,195],jenny:[95,145],drop:38}]},
+  {level:22,area:'Пещеры охотников',intro:'Подземные маршруты, где обычной силы уже недостаточно.',aura:360,dungeons:[
+    {name:'Пещера паучьего клана',desc:'Сеть тоннелей, перекрытая липкими нитями.',enemy:'Паук-охотник',xp:[260,360],jenny:[190,280],drop:40},{name:'Зал каменных стражей',desc:'Древний зал с неподвижными стражами, пробуждающимися от ауры.',enemy:'Каменный страж',xp:[300,410],jenny:[220,320],drop:43},{name:'Глубокий рудник',desc:'Заброшенный рудник с агрессивным существом в глубине.',enemy:'Шахтный людоед',xp:[340,460],jenny:[250,360],drop:46}]},
+  {level:38,area:'Башня испытаний',intro:'Вертикальный комплекс испытаний. Каждый этаж проверяет отдельную сторону Нэна.',aura:650,dungeons:[
+    {name:'Лестница сотни испытаний',desc:'Длинный подъём, где противник становится сильнее с каждым пролётом.',enemy:'Клинковый монах',xp:[620,820],jenny:[440,620],drop:48},{name:'Зал ловушек',desc:'Механизмы и ложные проходы заставляют сражаться расчётливо.',enemy:'Ловчий капканов',xp:[700,920],jenny:[500,700],drop:51},{name:'Верхний ярус',desc:'Высота и плотная аура превращают каждый промах в опасность.',enemy:'Страж верхнего яруса',xp:[780,1020],jenny:[560,790],drop:54}]},
+  {level:50,area:'Пустоши Нэна',intro:'Выжженные земли, где аура сохранилась даже после исчезновения цивилизации.',aura:1050,dungeons:[
+    {name:'Красная пустошь',desc:'Открытое поле без укрытий. Здесь решает первый точный удар.',enemy:'Пепельный зверь',xp:[1000,1350],jenny:[720,980],drop:55},{name:'Кратер Нэна',desc:'Воронка с концентрированной аурой, искажающей привычные техники.',enemy:'Ядровый голем',xp:[1150,1500],jenny:[800,1100],drop:58},{name:'Долина зверей',desc:'Дикая долина с несколькими стаями редких существ.',enemy:'Пустошный хищник',xp:[1300,1700],jenny:[900,1250],drop:61}]},
+  {level:60,area:'Руины древних охотников',intro:'Заброшенные комплексы старых мастеров Нэна.',aura:1650,dungeons:[
+    {name:'Затонувший архив',desc:'Залы знаний, ушедшие под воду и наполненные аурой старых печатей.',enemy:'Архивный призрак',xp:[1700,2250],jenny:[1200,1650],drop:62},{name:'Храм старых охотников',desc:'Святилище с испытаниями, созданными мастерами прошлого.',enemy:'Хранитель храма',xp:[1950,2550],jenny:[1350,1850],drop:65},{name:'Подземный экзекутор',desc:'Последний страж руин, который не признаёт права на ошибку.',enemy:'Подземный экзекутор',xp:[2200,2850],jenny:[1500,2050],drop:68}]},
+  {level:70,area:'Грозовой хребет',intro:'Горный массив, где природная энергия смешалась с Нэном.',aura:2550,dungeons:[
+    {name:'Грозовой лес',desc:'Деревья проводят разряды, а существа чувствуют движение по ауре.',enemy:'Грозовой волк',xp:[2800,3600],jenny:[1950,2700],drop:68},{name:'Штормовой утёс',desc:'Узкий утёс над пропастью. Один неверный шаг решает исход боя.',enemy:'Штормовой великан',xp:[3200,4100],jenny:[2200,3000],drop:71},{name:'Разрядная впадина',desc:'Центр грозовой зоны с плотным электрическим Нэном.',enemy:'Разрядный хищник',xp:[3600,4650],jenny:[2450,3350],drop:74}]},
+  {level:80,area:'Безлунный каньон',intro:'Территория без естественного света, где охотник полагается на чувство Нэна.',aura:3900,dungeons:[
+    {name:'Каньон без луны',desc:'Глубокие стены скрывают врага до последнего момента.',enemy:'Теневой зверь',xp:[4500,5800],jenny:[3000,4200],drop:74},{name:'Чёрная тропа',desc:'Маршрут, на котором следы исчезают через несколько секунд.',enemy:'Каньонный охотник',xp:[5100,6500],jenny:[3350,4650],drop:77},{name:'Разлом тени',desc:'Трещина, где аура ведёт себя непредсказуемо.',enemy:'Безлунный палач',xp:[5700,7200],jenny:[3700,5100],drop:80}]},
+  {level:90,area:'Земли Красной Ауры',intro:'Зона с экстремальной концентрацией Нэна. Здесь обычные техники становятся опасными.',aura:5900,dungeons:[
+    {name:'Красная цитадель',desc:'Крепость, окружённая плотной алой аурой.',enemy:'Алый зверь',xp:[7000,9000],jenny:[4600,6300],drop:80},{name:'Алый лабиринт',desc:'Сложная сеть коридоров, где противник меняет дистанцию.',enemy:'Страж цитадели',xp:[7800,10000],jenny:[5100,7000],drop:83},{name:'Сердце ауры',desc:'Источник красной энергии, охраняемый самым опасным существом зоны.',enemy:'Сердцеед',xp:[8600,11200],jenny:[5600,7700],drop:86}]},
+  {level:100,area:'Предел Нэна',intro:'Последняя известная граница испытаний. Сюда приходят охотники, которым уже мало обычной силы.',aura:8800,dungeons:[
+    {name:'Предел испытания',desc:'Последний маршрут перед абсолютным пределом.',enemy:'Пределец',xp:[10500,13500],jenny:[6800,9300],drop:86},{name:'Врата абсолютного Нэна',desc:'Врата, выдержать которые способен только мастер контроля ауры.',enemy:'Абсолютный страж',xp:[12000,15500],jenny:[7600,10400],drop:89},{name:'Бездна охотников',desc:'Бездна без известных карт. Здесь заканчиваются обычные правила охоты.',enemy:'Охотник бездны',xp:[14000,18000],jenny:[8500,11600],drop:92}]}
+];
+const ENEMY_NAMES = Object.fromEntries(HUNT_ZONES.flatMap((z,zi)=>z.dungeons.map((d,di)=>[`${z.level}+_${di}`,d.enemy])));
+const BATTLE_ENEMY_RARITY = ['Обычный','Обычный','Редкий','Редкий','Редкий','Легендарный','Легендарный','Мифический','Мифический','Мифический'];
+const BATTLE_RARITY_TABLE = [
+ [{rare:0,legendary:0,mythic:0},{rare:0,legendary:0,mythic:0},{rare:0,legendary:0,mythic:0}],
+ [{rare:3,legendary:0,mythic:0},{rare:9,legendary:0,mythic:0},{rare:15,legendary:0,mythic:0}],
+ [{rare:30,legendary:0,mythic:0},{rare:45,legendary:0,mythic:0},{rare:55,legendary:0,mythic:0}],
+ [{rare:60,legendary:3,mythic:0},{rare:70,legendary:7,mythic:0},{rare:78,legendary:12,mythic:0}],
+ [{rare:80,legendary:8,mythic:0},{rare:85,legendary:12,mythic:0},{rare:88,legendary:18,mythic:0}],
+ [{rare:82,legendary:15,mythic:.5},{rare:84,legendary:15,mythic:1},{rare:86,legendary:12,mythic:2}],
+ [{rare:78,legendary:20,mythic:2},{rare:80,legendary:22,mythic:3},{rare:82,legendary:25,mythic:5}],
+ [{rare:72,legendary:25,mythic:4},{rare:75,legendary:30,mythic:5},{rare:78,legendary:35,mythic:7}],
+ [{rare:64,legendary:30,mythic:7},{rare:67,legendary:34,mythic:9},{rare:70,legendary:38,mythic:12}],
+ [{rare:55,legendary:33,mythic:12},{rare:58,legendary:36,mythic:15},{rare:62,legendary:38,mythic:18}]
+];
+function rollDropRarity(zoneIndex,dungeonIndex){const t=BATTLE_RARITY_TABLE[zoneIndex][dungeonIndex],r=Math.random()*100;if(r<t.mythic+t.legendary+t.rare){if(r<t.mythic)return 'Мифический';if(r<t.mythic+t.legendary)return 'Легендарный';return 'Редкий';}return 'Обычный';}
+function getDropClass(){if(Math.random()<.85)return activeCharacter;const others=Object.keys(characters).filter(id=>id!==activeCharacter);return others[randInt(0,others.length-1)];}
+
+let selectedHuntZone = 0, selectedDungeonIndex = null;
+let battleState = null;
+function huntZoneUnlocked(i){ const c=characters[activeCharacter]; return c && c.level>=HUNT_ZONES[i].level; }
+function getDungeonAura(zoneIndex,dungeonIndex){
+ if(zoneIndex===0 && dungeonIndex===0) return 86;
+ const z=HUNT_ZONES[zoneIndex], d=z.dungeons[dungeonIndex];
+ const lv=z.level, scale=Math.pow(1.15,Math.max(0,lv-1)), mult=1+dungeonIndex*.09;
+ const power=(zoneIndex===0&&dungeonIndex===0)?1:(dungeonIndex===2?2.5:1.5); const hp=Math.round(145*scale*mult*power), strength=Math.max(5,Math.round(11*scale*mult*power)), defense=Math.max(3,Math.round(9*Math.pow(1.12,Math.max(0,lv-1))*mult*power));
+ return Math.max(86,Math.ceil(30 + hp*0.25 + strength*2 + defense*0.8));
+}
+function isDungeonUnlocked(zoneIndex,dungeonIndex){
+ const c=characters[activeCharacter]; if(!c)return false;
+ const z=HUNT_ZONES[zoneIndex];
+ return c.level>=z.level;
+}
+function getDungeonRarityChances(zoneIndex,dungeonIndex){
+ const d=HUNT_ZONES[zoneIndex].dungeons[dungeonIndex];
+ const t=BATTLE_RARITY_TABLE[zoneIndex][dungeonIndex];
+ const drop=Number(d.drop)||0;
+ return {
+   ordinary: Math.max(0,Math.round(drop*(100-t.rare-t.legendary-t.mythic))/100),
+   rare: Math.max(0,Math.round(drop*t.rare)/100),
+   legendary: Math.max(0,Math.round(drop*t.legendary)/100),
+   mythic: Math.max(0,Math.round(drop*t.mythic)/100)
+ };
+}
+function getDungeonRewardRanges(zoneIndex,dungeonIndex){
+ const d=HUNT_ZONES[zoneIndex].dungeons[dungeonIndex];
+ const elite=dungeonIndex===2;
+ return {
+   xp:[Math.round(d.xp[0]*(elite?1.5:1)),Math.round(d.xp[1]*(elite?1.5:1))],
+   jenny:[Math.round(d.jenny[0]*(elite?1.15:1)),Math.round(d.jenny[1]*(elite?1.15:1))]
+ };
+}
+function renderHuntDetailModal(){
+ const modal=$('#huntDetailModal'), content=$('#huntDetailModalContent');
+ if(!modal||!content||selectedDungeonIndex===null)return;
+ const c=characters[activeCharacter],z=HUNT_ZONES[selectedHuntZone],d=z.dungeons[selectedDungeonIndex];
+ const reqAura=getDungeonAura(selectedHuntZone,selectedDungeonIndex),locked=!isDungeonUnlocked(selectedHuntZone,selectedDungeonIndex),ch=getDungeonRarityChances(selectedHuntZone,selectedDungeonIndex);
+ content.innerHTML=`<div class="dungeon-detail modal-dungeon-detail"><div class="dungeon-detail-media" style="background-image:url('img/dungeon/${z.level}+/dungeon_${selectedDungeonIndex+1}.jpg')"><div class="detail-media-shade"></div><div class="detail-media-title"></div></div><div class="dungeon-detail-info"><h3 class="modal-dungeon-title">${d.name}</h3><p>${d.desc}</p><div class="reward-grid"><div><span>XP</span><b>${formatNumber(getDungeonRewardRanges(selectedHuntZone,selectedDungeonIndex).xp[0])}–${formatNumber(getDungeonRewardRanges(selectedHuntZone,selectedDungeonIndex).xp[1])}</b></div><div><span>Дженни</span><b><img src="img/icon/jenny.png" alt="">${formatNumber(getDungeonRewardRanges(selectedHuntZone,selectedDungeonIndex).jenny[0])}–${formatNumber(getDungeonRewardRanges(selectedHuntZone,selectedDungeonIndex).jenny[1])}</b></div><div><span>Обычный</span><b>${formatNumber(ch.ordinary)}%</b></div><div><span>Редкий</span><b>${formatNumber(ch.rare)}%</b></div><div><span>Легендарный</span><b>${formatNumber(ch.legendary)}%</b></div><div><span>Мифический</span><b>${formatNumber(ch.mythic)}%</b></div></div><div class="aura-req compact-aura"><span>Требуется аура <b>${formatNumber(reqAura)}</b></span><span>Твоя: ${formatNumber(calculateAura(c))}</span></div><button class="hunt-start" id="startDungeonBtn" type="button" ${locked?'disabled':''}>${locked?'НУЖНО БОЛЬШЕ СИЛЫ':'НАЧАТЬ ОХОТУ'}</button></div></div>`;
+ modal.classList.add('visible'); modal.setAttribute('aria-hidden','false'); $('#huntScreen')?.classList.add('hunt-modal-open');
+ $('#startDungeonBtn')?.addEventListener('click',startDungeonBattle);
+}
+function closeHuntDetailModal(){const modal=$('#huntDetailModal');if(!modal)return;modal.classList.remove('visible');modal.setAttribute('aria-hidden','true');$('#huntScreen')?.classList.remove('hunt-modal-open');}
+function renderHunt(){
+ const c=characters[activeCharacter]; if(!c)return;
+ const levels=$('#huntLevels');
+ if(levels) levels.innerHTML=HUNT_ZONES.map((z,i)=>`<button type="button" class="hunt-level-btn ${i===selectedHuntZone?'active':''} ${huntZoneUnlocked(i)?'':'locked'}" data-hunt-level="${i}" ${huntZoneUnlocked(i)?'':'disabled'}>${z.level}+</button>`).join('');
+ const z=HUNT_ZONES[selectedHuntZone];
+ const area=$('#huntArea');
+ if(area) area.innerHTML=`<div class="hunt-area-title"><div><span class="section-kicker">${z.level}+ • МЕСТНОСТЬ</span><h3>${z.area}</h3></div><p>${z.intro}</p></div>`;
+ $('#huntDungeons').innerHTML=z.dungeons.map((d,i)=>{
+   const aura=getDungeonAura(selectedHuntZone,i),open=isDungeonUnlocked(selectedHuntZone,i);
+   return `<button type="button" class="dungeon-card ${i===selectedDungeonIndex?'active':''} ${open?'':'locked'}" data-dungeon="${i}"><img src="img/dungeon/${z.level}+/dungeon_${i+1}.jpg" alt=""><div class="dungeon-card-body"><b>${d.name}</b><small>Аура ${formatNumber(aura)}+</small></div></button>`;
+ }).join('');
+ levels?.querySelectorAll('[data-hunt-level]').forEach(b=>b.addEventListener('click',()=>{selectedHuntZone=Number(b.dataset.huntLevel);selectedDungeonIndex=null;closeHuntDetailModal();renderHunt();}));
+ $('#huntDungeons')?.querySelectorAll('[data-dungeon]').forEach(b=>b.addEventListener('click',()=>{selectedDungeonIndex=Number(b.dataset.dungeon);renderHunt();renderHuntDetailModal();}));
+}
+function enemyForDungeon(zoneIndex,dungeonIndex){
+ const z=HUNT_ZONES[zoneIndex], d=z.dungeons[dungeonIndex], lv=z.level, scale=Math.pow(1.15,Math.max(0,lv-1));
+ const mult=1 + dungeonIndex*.09;
+ const isFirstDungeon=(zoneIndex===0&&dungeonIndex===0);
+ const statPower=isFirstDungeon?1:(dungeonIndex===2?2.5:1.5);
+ let damageMultiplier=isFirstDungeon?1:(1.30+Math.random()*.20)*1.5*(dungeonIndex===2?(1.5/1.6):1); if(dungeonIndex===2) damageMultiplier*=0.70;
+ return {name:d.enemy,level:Math.max(1,lv),maxHp:Math.round(145*scale*mult*statPower),hp:Math.round(145*scale*mult*statPower),maxMana:Math.round(45*scale),mana:Math.round(45*scale),strength:Math.max(5,Math.round(11*scale*mult*statPower)),defense:Math.max(3,Math.round(9*Math.pow(1.12,Math.max(0,lv-1))*mult*statPower*(dungeonIndex===2?0.60:1))),critChance:Math.min(24,3+lv*.07+dungeonIndex*2),critDamage:25+Math.min(35,lv*.08),evasion:Math.min(18,2+lv*.05+dungeonIndex),vampirism:Math.min(8,lv*.025),damageMultiplier,image:`img/dungeon/${lv}+/enemy${lv}+/enemy_${dungeonIndex+1}.png`,rarity:BATTLE_ENEMY_RARITY[zoneIndex]};
+}
+function playerBattleStats(){ const c=characters[activeCharacter], st=getEffectivePrimaryStats(c); return {name:c.name,level:c.level,maxHp:Math.max(1,Math.round(st.health)),hp:Math.max(1,Math.round(st.health)),maxMana:Math.max(0,Math.round(st.mana)),mana:Math.max(0,Math.round(st.mana)),strength:st.strength,defense:st.defense,critChance:st.critChance,critDamage:st.critDamage,vampirism:st.vampirism,evasion:st.evasion}; }
+function addBattleLog(text,cls='info'){const el=$('#battleLog');if(!el)return;el.insertAdjacentHTML('beforeend',`<div class="${cls}">${text}</div>`);el.scrollTop=el.scrollHeight;}
+function clampBattle(v,max){return Math.max(0,Math.min(max,v));}
+function calcDamage(attacker,defender,mult=1,ignoreDefense=0){let raw=(attacker.strength*1.55+8)*mult; const def=Math.max(0,defender.defense*(1-ignoreDefense)); let dmg=Math.max(1,Math.round(raw*(100/(100+def*2.1)))); const crit=Math.random()*100<attacker.critChance; if(crit)dmg=Math.round(dmg*(1.5+attacker.critDamage/100)); return {damage:dmg,crit};}
+function applyBattleDamage(target,amount){target.hp=clampBattle(target.hp-amount,target.maxHp);}
+function battleHealPlayer(){const s=battleState; const amount=Math.round(s.player.maxHp*.16);s.player.hp=clampBattle(s.player.hp+amount,s.player.maxHp);addBattleLog(`Вы восстановили ${amount} HP.`,'good');}
+function renderBattle(){const s=battleState;if(!s)return;const p=s.player,e=s.enemy;const set=(id,v)=>{const el=$(id);if(el)el.textContent=v};set('#battlePlayerName',p.name);set('#battlePlayerHp',`${p.hp}/${p.maxHp}`);set('#battlePlayerMana',`${p.mana}/${p.maxMana}`);set('#battleEnemyName',e.name);set('#battleEnemyHp',`${e.hp}/${e.maxHp}`);set('#battleEnemyMana',`${e.mana}/${e.maxMana}`);set('#battleTurnLabel',s.busy?'Ход противника':'Ваш ход');$('#battlePlayerImage').src=`img/dungeon/me_klass/${activeCharacter}.png`;$('#battleEnemyImage').src=e.image;$('#battlePlayerHpFill').style.width=`${p.hp/p.maxHp*100}%`;$('#battlePlayerManaFill').style.width=`${p.mana/p.maxMana*100}%`;$('#battleEnemyHpFill').style.width=`${e.hp/e.maxHp*100}%`;$('#battleEnemyManaFill').style.width=`${e.mana/e.maxMana*100}%`;renderBattleActions();}
+function battleCanUseSkill(index){const s=battleState;if(!s||s.busy)return false;const skill=SKILLS[activeCharacter]?.[index];if(!skill||!isSkillUnlocked(index)||!isSkillSelected(index))return false;return s.player.mana>=getSkillManaCost(skill,index)&&(s.skillCd[index]||0)<=0;}
+function renderBattleActions(){const s=battleState,wrap=$('#battleActions');if(!s||!wrap)return;const active=getActiveSkillIndexes();let html=`<button class="battle-action attack" data-battle-action="attack"><img src="img/icon/strength.png"><b>Атака</b><small>Обычный удар</small></button>`;active.forEach((idx,slot)=>{const skill=SKILLS[activeCharacter][idx],cost=getSkillManaCost(skill,idx),cd=s.skillCd[idx]||0;html+=`<button class="battle-action skill ${cd?'on-cooldown':''}" data-battle-skill="${idx}" ${battleCanUseSkill(idx)?'':'disabled'}><span class="battle-action-image"><img src="${getSkillIconPath(activeCharacter,idx)}">${cd?`<i class="battle-cd">${cd}</i>`:''}</span><b>${skill.name}</b><small>${cost} маны</small></button>`;});while(active.length+1<3){html+=`<button class="battle-action skill" disabled><img src="img/icon/skills.png"><b>Пустой слот</b><small>Навык не надет</small></button>`;active.push(-1);}html+=`<button class="battle-action heal ${s.healCd?'on-cooldown':''}" data-battle-action="heal" ${s.player.mana<15||s.healCd>0?'disabled':''}><span class="battle-action-image"><img src="img/icon/health.png">${s.healCd?`<i class="battle-cd">${s.healCd}</i>`:''}</span><b>Лечение</b><small>15 маны</small></button><button class="battle-action defend ${s.defendCd?'on-cooldown':''}" data-battle-action="defend" ${s.defendCd>0?'disabled':''}><span class="battle-action-image"><img src="img/icon/defense.png">${s.defendCd?`<i class="battle-cd">${s.defendCd}</i>`:''}</span><b>Защита</b><small>40% блока</small></button>`;wrap.innerHTML=html;wrap.querySelectorAll('[data-battle-action]').forEach(b=>b.addEventListener('click',()=>battlePlayerAction(b.dataset.battleAction)));wrap.querySelectorAll('[data-battle-skill]').forEach(b=>b.addEventListener('click',()=>battlePlayerAction('skill',Number(b.dataset.battleSkill))));}
+function reduceCooldowns(){const s=battleState;if(!s)return;Object.keys(s.skillCd).forEach(k=>s.skillCd[k]=Math.max(0,s.skillCd[k]-1));s.healCd=Math.max(0,s.healCd-1);s.defendCd=Math.max(0,s.defendCd-1);}
+function battlePlayerAction(action,index){const s=battleState;if(!s||s.busy||s.ended)return;if(!s.playerTurnReady){reduceCooldowns();s.playerTurnReady=true;}let performed=false;
+ if(action==='attack'){let mult=1;if(s.damageBuff){mult*=s.damageBuff;s.damageBuff=1;}if(s.nextAttackBonus!==1){mult*=s.nextAttackBonus;s.nextAttackBonus=1;}if(s.enemyMarked){mult*=1.35;s.enemyMarked=false;addBattleLog('Метка сработала: удар усилен на 35%.','info');}const r=calcDamage(s.player,s.enemy,mult);applyBattleDamage(s.enemy,r.damage);addBattleLog(`Вы нанесли ${r.damage} урона${r.crit?' — КРИТ!':''} ${s.enemy.name}.`,'good');const heal=Math.floor(r.damage*s.player.vampirism/100);if(heal){s.player.hp=clampBattle(s.player.hp+heal,s.player.maxHp);addBattleLog(`Вампиризм: +${heal} HP.`,'good');}performed=true;}
+ else if(action==='heal'&&s.player.mana>=15&&s.healCd<=0){s.player.mana-=15;battleHealPlayer();s.healCd=3;performed=true;}
+ else if(action==='defend'&&s.defendCd<=0){s.defending=true;s.defendCd=2;addBattleLog('Вы приняли защитную стойку. Следующий удар противника будет снижен на 40%.','info');performed=true;}
+ else if(action==='skill'&&battleCanUseSkill(index)){const skill=SKILLS[activeCharacter][index];const cost=getSkillManaCost(skill,index);s.player.mana-=cost;const mult=1+getSkillPower(skill,index)/100;let r={damage:0,crit:false};
+   if(skill.type==='buff'||skill.type==='stealth'){if(skill.type==='buff')s.damageBuff=1.35;if(skill.type==='stealth')s.playerEvasionBuff=60;addBattleLog(`${skill.name}: эффект активирован.`,'info');}
+   else {let pierce=skill.type==='pierce'?0.25:skill.type==='reveal'?0.15:0;let skillMult=1+(getSkillPower(skill,index)/70);if(skill.type==='mark'&&s.enemyMarked)skillMult*=1.35;r=calcDamage(s.player,s.enemy,skillMult,pierce);if(skill.type==='execute'&&s.enemy.hp/s.enemy.maxHp<.35)r.damage=Math.round(r.damage*1.5);if(s.nextAttackBonus!==1){r.damage=Math.round(r.damage*s.nextAttackBonus);s.nextAttackBonus=1;}if(s.damageBuff){r.damage=Math.round(r.damage*s.damageBuff);s.damageBuff=1;}applyBattleDamage(s.enemy,r.damage);addBattleLog(`Вы использовали «${skill.name}» и нанесли ${r.damage}${r.crit?' — КРИТ!':''} урона.`,'good');if(skill.type==='chain'||skill.type==='control'||skill.type==='mind')s.enemyDebuff=skill.type==='mind'?.75:.6;if(skill.type==='reveal'){s.enemy.revealed=true;s.nextAttackBonus=1;}if(skill.type==='bleed'){s.enemyBleed=Math.max(1,Math.round(s.enemy.maxHp*.035));addBattleLog(`Кровотечение: ${s.enemyBleed} урона после хода противника.`,'bad');}if(skill.type==='mark'){s.enemyMarked=true;addBattleLog(`Метка нанесена: следующий удар по цели усилен на 35%.`,'info');}if(skill.type==='deception'){s.playerEvasionBuff=50;s.nextAttackBonus=1.2;addBattleLog(`Обман: 50% уклонения и усиление следующей атаки.`,'info');}const heal=Math.floor(r.damage*s.player.vampirism/100);if(heal){s.player.hp=clampBattle(s.player.hp+heal,s.player.maxHp);addBattleLog(`Вампиризм: +${heal} HP.`,'good');}}
+   s.skillCd[index]=Math.max(1,Number(skill.cooldown)||1);performed=true;}
+ if(!performed)return; s.playerTurnReady=false; if(s.enemy.hp<=0)return battleWin(); s.busy=true;renderBattle();setTimeout(enemyTurn,650);
+}
+function enemyTurn(){const s=battleState;if(!s||s.ended)return;if(s.enemyBleed>0){const bleed=s.enemyBleed;applyBattleDamage(s.enemy,bleed);addBattleLog(`Кровотечение наносит ${bleed} урона ${s.enemy.name}.`,'bad');}if(s.enemy.hp<=0)return battleWin();let attackMult=s.enemyDebuff||1;s.enemyDebuff=1;let atk={...s.enemy};atk.evasion=0;const playerEv=Math.min(95,s.player.evasion+(s.playerEvasionBuff||0));if(Math.random()*100<playerEv){addBattleLog(`${s.enemy.name} атаковал, но вы уклонились.`,'info');}else{let r=calcDamage(atk,s.player,attackMult);const variance=0.82+Math.random()*0.40;r.damage=Math.max(1,Math.round(r.damage*variance*(s.enemy.damageMultiplier||1)));if(s.defending){r.damage=Math.round(r.damage*.6);s.defending=false;}applyBattleDamage(s.player,r.damage);addBattleLog(`${s.enemy.name} нанёс вам ${r.damage}${r.crit?' — КРИТ!':''} урона.`,'bad');const heal=Math.floor(r.damage*s.enemy.vampirism/100);if(heal){s.enemy.hp=clampBattle(s.enemy.hp+heal,s.enemy.maxHp);addBattleLog(`${s.enemy.name} восстановил ${heal} HP.`,'bad');}}
+s.playerEvasionBuff=0;s.busy=false;if(s.player.hp<=0)return battleLose();renderBattle();}
+function showBattleResult(result){
+ const modal=$('#battleResultModal'); if(!modal)return;
+ modal.classList.add('visible'); modal.setAttribute('aria-hidden','false');
+ const icon=$('#battleResultIcon'); const title=$('#battleResultTitle'); const subtitle=$('#battleResultSubtitle'); const rewards=$('#battleResultRewards');
+ if(result.win){
+   icon.textContent='✓'; title.textContent='ПОБЕДА'; subtitle.textContent=`Вы победили: ${result.enemy}`;
+   rewards.innerHTML=`<div class="result-reward-grid"><div class="result-reward"><span>Опыт</span><b>+${formatNumber(result.xp)} XP</b></div><div class="result-reward"><span>Дженни</span><b><img src="img/icon/jenny.png" alt="">+${formatNumber(result.jenny)}</b></div></div>${result.drop?`<div class="result-equipment"><span>Снаряжение</span><div class="result-item rank-${getRankClass(result.drop.rarity)}"><img src="${getEquipmentImage(result.drop)}" alt=""><div><b>${result.drop.name}</b><small>${result.drop.rarity} • ${result.drop.className} • Ур. ${formatNumber(result.drop.itemLevel||result.drop.level||1)}</small></div></div></div>`:'<div class="result-no-drop">Снаряжение не выпало</div>'}`;
+ } else {
+   icon.textContent='×'; title.textContent='ПОРАЖЕНИЕ'; subtitle.textContent=`Вы проиграли: ${result.enemy}`;
+   rewards.innerHTML='<div class="result-no-drop">Опыт и Дженни за этот бой не начислены.</div>';
+ }
+}
+function closeBattleResult(){const modal=$('#battleResultModal');if(!modal)return;modal.classList.remove('visible');modal.setAttribute('aria-hidden','true');closeBattle();}
+function battleWin(){
+ const s=battleState;if(!s||s.ended)return;s.ended=true;
+ const z=HUNT_ZONES[selectedHuntZone],d=z.dungeons[selectedDungeonIndex],rewards=getDungeonRewardRanges(selectedHuntZone,selectedDungeonIndex),xp=randInt(rewards.xp[0],rewards.xp[1]),j=randInt(rewards.jenny[0],rewards.jenny[1]);
+ gainExperience(xp);localStorage.setItem('hxh_jenny',String(Math.ceil(Number(localStorage.getItem('hxh_jenny')||0)+j)));
+ let drop=null;
+ if(Math.random()*100<d.drop){
+   const rarity=rollDropRarity(selectedHuntZone,selectedDungeonIndex);
+   const types=['weapon','armor','amulet','ring'];
+   const dropClass=getDropClass();
+   const playerLevel=Math.max(1,Number(characters[activeCharacter].level||1));
+   const itemLevel=randInt(Math.max(1,playerLevel-1),Math.min(100,playerLevel+1));
+   drop=generateEquipmentDrop(dropClass,types[randInt(0,3)],itemLevel,rarity);
+   if(drop){inventory.unshift(drop);inventory=inventory.slice(0,100);saveInventoryState();}
+ }
+ renderCurrencies();renderAll();renderBattle();
+ showBattleResult({win:true,enemy:d.enemy,xp,jenny:j,drop});
+}
+function battleLose(){const s=battleState;if(!s||s.ended)return;s.ended=true;renderBattle();showBattleResult({win:false,enemy:s.enemy.name,xp:0,jenny:0,drop:null});}
+
+function startDungeonBattle(){if(selectedDungeonIndex===null)return;closeHuntDetailModal();const z=HUNT_ZONES[selectedHuntZone],d=z.dungeons[selectedDungeonIndex];if(!isDungeonUnlocked(selectedHuntZone,selectedDungeonIndex))return;battleState={player:playerBattleStats(),enemy:enemyForDungeon(selectedHuntZone,selectedDungeonIndex),skillCd:{},healCd:0,defendCd:0,defending:false,damageBuff:1,enemyDebuff:1,playerEvasionBuff:0,enemyBleed:0,enemyMarked:false,nextAttackBonus:1,ended:false,busy:false};$('#battleDungeonName').textContent=d.name;$('#battleLog').innerHTML='';$('#battleScreen').classList.add('visible');$('#battleScreen').setAttribute('aria-hidden','false');$('#battleShell').style.backgroundImage=`url("img/dungeon/${z.level}+/dungeon_${selectedDungeonIndex+1}.jpg")`;addBattleLog(`Вы вошли в «${d.name}». Вы атакуете первым.`,'info');renderBattle();}
+function closeBattle(){battleState=null;$('#battleScreen').classList.remove('visible');$('#battleScreen').setAttribute('aria-hidden','true');renderHunt();}
+function setupHunt(){renderHunt();$('#battleCloseBtn')?.addEventListener('click',closeBattle);$('#battleResultCloseBtn')?.addEventListener('click',closeBattleResult);$('#battleResultModal')?.addEventListener('click',e=>{if(e.target.id==='battleResultModal')closeBattleResult();});$('#huntDetailModalClose')?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();closeHuntDetailModal();});$('#huntDetailModal')?.addEventListener('click',e=>{if(e.target.id==='huntDetailModal')closeHuntDetailModal();});$('#huntDetailModalContent')?.addEventListener('click',e=>{const btn=e.target.closest('#startDungeonBtn');if(btn){e.preventDefault();e.stopPropagation();startDungeonBattle();}});}
+const _setupNavigationV38=setupNavigation;
+setupNavigation=function(){
+ const titles={hunter:'Хантер',hunt:'Охота',rank:'Ранг',chat:'Чаты',more:'Ещё'};
+ const setTabBackground=tab=>{document.body.classList.remove('tab-hunter','tab-hunt','tab-rank','tab-chat','tab-more');document.body.classList.add(`tab-${tab}`);};
+ setTabBackground('hunter');
+ document.querySelectorAll('.nav-item').forEach(btn=>btn.addEventListener('click',()=>{
+   document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));btn.classList.add('active');
+   const tab=btn.dataset.tab; setTabBackground(tab);
+   $('#inventoryScreen')?.classList.remove('visible'); $('#skillsScreen')?.classList.remove('visible'); $('#equipmentModal')?.classList.remove('visible');
+   closeHuntDetailModal(); closeSettings(); inventoryMassMode=false; inventorySelected.clear();
+   const hunt=tab==='hunt', more=tab==='more';
+   $('#hunterPage').style.display=tab==='hunter'?'block':'none';
+   $('#huntScreen').classList.toggle('visible',hunt); $('#huntScreen').setAttribute('aria-hidden',hunt?'false':'true');
+   $('#moreScreen').classList.toggle('visible',more); $('#moreScreen').setAttribute('aria-hidden',more?'false':'true');
+   $('#placeholderPage').classList.toggle('visible',!['hunter','hunt','more'].includes(tab));
+   $('#placeholderTitle').textContent=titles[tab]; $('#placeholderKicker').textContent=tab.toUpperCase();
+   if(hunt)renderHunt(); if(more)renderMorePage();
+ }));
+ $('#openSettingsBtn')?.addEventListener('click',openSettings);
+ $('#settingsCloseBtn')?.addEventListener('click',closeSettings);
+ $('#settingsModal')?.addEventListener('click',e=>{if(e.target.id==='settingsModal')closeSettings();});
+ $('#changeNicknameBtn')?.addEventListener('click',changeNicknameFromSettings);
+ $('#settingsCharacterToggle')?.addEventListener('click',()=>{const body=$('#settingsCharacterBody'),toggle=$('#settingsCharacterToggle');if(!body)return;body.hidden=!body.hidden;toggle.setAttribute('aria-expanded',String(!body.hidden));toggle.classList.toggle('open',!body.hidden);});
+ $('#settingsConfirmCharacterBtn')?.addEventListener('click',()=>{if(settingsPendingCharacter&&settingsPendingCharacter!==activeCharacter)switchCharacterFromSettings(settingsPendingCharacter);});
+};
+
+function initializeGame() {
+  loadCharacterStates();
+  const hadSavedGame = loadGameState();
+  firstEntry = !hadSavedGame;
+  pendingCharacter = activeCharacter;
+
+  loadInventoryState();
+  Object.keys(SKILLS).forEach(ensureSkillState);
+  renderAll();
+  renderCurrencies();
+  setupNavigation();
+  setupFirstEntry();
+  setupSkills();
+  setupInventory();
+  setupHunt();
+
+  // Если это старое сохранение, один раз создаём единый стабильный сейв v22.
+  if (hadSavedGame && !localStorage.getItem(SAVE_KEY)) saveGameState();
+}
+
+window.addEventListener("beforeunload", saveGameState);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") saveGameState();
+});
+
+initializeGame();
