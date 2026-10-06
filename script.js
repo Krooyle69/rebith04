@@ -1571,7 +1571,7 @@ function setupExpedition(){finishExpeditionIfDue();$('#openExpeditionBtn')?.addE
 const HUNT_ENERGY_STORAGE_KEY='hxh_hunt_energy_v1';
 const HUNT_ENERGY_BASE_MAX=100;
 function getHuntEnergyMax(){return HUNT_ENERGY_BASE_MAX+(isPremiumActive()?50:0);}
-const HUNT_ENERGY_COST=5;
+const HUNT_ENERGY_COST=0;
 const HUNT_ENERGY_REGEN_MS=3*60*1000;
 let energyUiTimer=null;
 function getHuntEnergyState(){
